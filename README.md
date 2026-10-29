@@ -1,4 +1,4 @@
-# FinSight (Financial + Insight)
+# FinSight
 LangChain + FastAPI 기반 실시간 주식 뉴스 감성 분석 시스템
 
 ## 프로젝트 소개
