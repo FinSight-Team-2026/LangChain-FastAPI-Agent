@@ -1,0 +1,6 @@
+{
+  "name": "주식 뉴스 AI 감성 분석 대시보드",
+  "description": "토스증권 스타일의 주식 TOP 10 순위, 관심 종목 관리, AI 뉴스 요약 및 감성 분석 대시보드",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
