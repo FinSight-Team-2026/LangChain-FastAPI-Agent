@@ -1,20 +1,22 @@
 import React from 'react';
-import { LogOut } from 'lucide-react';
+import { LogOut, UserRound } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 // src 폴더 안에 있는 Logo.png를 안전하게 불러옵니다
 import logoImage from '../Logo.png'; 
 // 만약 src/assets 폴더 안에 넣으셨다면 위 경로를 import logoImage from '../assets/Logo.png'; 로 수정해주세요!
 
 interface HeaderProps {
-  activeTab: 'dashboard' | 'watchlist' | 'news-lab';
-  setActiveTab: (tab: 'dashboard' | 'watchlist' | 'news-lab') => void;
+  activeTab: 'dashboard' | 'watchlist' | 'news-lab' | 'my-page';
+  setActiveTab: (tab: 'dashboard' | 'watchlist' | 'news-lab' | 'my-page') => void;
   onOpenSearch: () => void;
   onOpenAuth: () => void;
+  onOpenMyPage: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   onOpenAuth,
+  onOpenMyPage,
 }) => {
   const { currentUser, isLoggedIn, logout, watchlist } = useAuth();
 
@@ -60,7 +62,18 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
               </div>
               <button
-                onClick={logout}
+                onClick={onOpenMyPage}
+                aria-label="마이페이지"
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+              >
+                <UserRound className="h-4 w-4" />
+                <span>마이페이지</span>
+              </button>
+              <button
+                onClick={() => {
+                  logout();
+                  setActiveTab('dashboard');
+                }}
                 title="로그아웃"
                 className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
               >
@@ -68,12 +81,21 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             </div>
           ) : (
-            <button
-              onClick={onOpenAuth}
-              className="px-3.5 py-2 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-all shadow-sm hover:shadow"
-            >
-              로그인 / 회원가입
-            </button>
+            <>
+              <button
+                onClick={onOpenMyPage}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                <UserRound className="h-4 w-4" />
+                마이페이지
+              </button>
+              <button
+                onClick={onOpenAuth}
+                className="rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow"
+              >
+                로그인 / 회원가입
+              </button>
+            </>
           )}
         </div>
       </div>

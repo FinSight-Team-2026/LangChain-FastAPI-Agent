@@ -7,6 +7,7 @@ import { NewsLabSection } from './components/NewsLabSection';
 import { StockDetailModal } from './components/StockDetailModal';
 import { SearchModal } from './components/SearchModal';
 import { AuthModal } from './components/AuthModal';
+import { MyPage } from './components/MyPage';
 import { ToastProvider } from './components/Toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { MOCK_STOCKS, MARKET_INDICES } from './data/mockStocks';
@@ -15,13 +16,13 @@ import { Sparkles, ArrowUpRight, Flame, Star, ChevronRight } from 'lucide-react'
 import { formatPrice, formatChangeRate, getPriceColorClass, getSentimentMeta } from './utils/formatters';
 
 const DashboardContent: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'watchlist' | 'news-lab'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'watchlist' | 'news-lab' | 'my-page'>('dashboard');
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
 
-  const { watchlist } = useAuth();
+  const { watchlist, isLoggedIn } = useAuth();
   const watchedStocks = MOCK_STOCKS.filter((s) => watchlist.includes(s.id));
 
   // Key highlight cards on dashboard
@@ -39,6 +40,14 @@ const DashboardContent: React.FC = () => {
         }}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
+        onOpenMyPage={() => {
+          if (isLoggedIn) {
+            setActiveTab('my-page');
+            setShowComparison(false);
+          } else {
+            setIsAuthOpen(true);
+          }
+        }}
       />
 
       {/* Main Content Area */}
@@ -287,6 +296,9 @@ const DashboardContent: React.FC = () => {
             stocks={MOCK_STOCKS}
             onOpenStockModal={(stock) => setSelectedStock(stock)}
           />
+        )}
+        {activeTab === 'my-page' && isLoggedIn && (
+          <MyPage onBack={() => setActiveTab('dashboard')} />
         )}
       </main>
 

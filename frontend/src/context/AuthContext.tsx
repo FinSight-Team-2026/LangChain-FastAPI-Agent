@@ -11,6 +11,8 @@ interface AuthContextType {
   isInWatchlist: (stockId: string) => boolean;
   login: (email: string, name?: string) => void;
   signup: (email: string, name: string) => void;
+  updateProfile: (name: string, email: string) => void;
+  deleteAccount: () => void;
   logout: () => void;
 }
 
@@ -120,6 +122,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('toss_stock_user', JSON.stringify(user));
   };
 
+  const updateProfile = (name: string, email: string) => {
+    if (!currentUser) {
+      throw new Error('로그인한 사용자만 회원정보를 수정할 수 있습니다.');
+    }
+
+    const updatedUser = { ...currentUser, name, email };
+    localStorage.setItem('toss_stock_user', JSON.stringify(updatedUser));
+    setCurrentUser(updatedUser);
+  };
+
+  const deleteAccount = () => {
+    if (currentUser) {
+      localStorage.removeItem(`toss_stock_watchlist_${currentUser.id}`);
+    }
+    localStorage.removeItem('toss_stock_user');
+    setCurrentUser(null);
+    setWatchlist(DEFAULT_GUEST_WATCHLIST);
+  };
+
   const logout = () => {
     setCurrentUser(null);
     localStorage.removeItem('toss_stock_user');
@@ -137,6 +158,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isInWatchlist,
         login,
         signup,
+        updateProfile,
+        deleteAccount,
         logout
       }}
     >

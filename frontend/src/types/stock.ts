@@ -1,3 +1,5 @@
+export type SentimentType = 'positive' | 'neutral' | 'negative';
+
 export interface Stock {
   id: string;
   code: string;
@@ -38,4 +40,12 @@ export interface Stock {
     keywords: string[];       
     url?: string;             
   }>;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  watchlist: string[];
+  joinedDate: string;
 }
