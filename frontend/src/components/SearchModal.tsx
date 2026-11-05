@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Search, X, Star, Sparkles, TrendingUp, ChevronRight } from 'lucide-react';
 import { Stock } from '../types/stock';
 import { formatPrice, formatChangeRate, getPriceColorClass, getSentimentMeta } from '../utils/formatters';
@@ -9,6 +9,8 @@ interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   stocks: Stock[];
+  query: string;
+  onQueryChange: (query: string) => void;
   onSelectStock: (stock: Stock) => void;
 }
 
@@ -16,9 +18,10 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   isOpen,
   onClose,
   stocks,
+  query,
+  onQueryChange,
   onSelectStock,
 }) => {
-  const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const { isInWatchlist, toggleWatchlist } = useAuth();
   const { showToast } = useToast();
@@ -28,8 +31,6 @@ export const SearchModal: React.FC<SearchModalProps> = ({
       setTimeout(() => {
         inputRef.current?.focus();
       }, 50);
-    } else {
-      setQuery('');
     }
   }, [isOpen]);
 
@@ -79,13 +80,13 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => onQueryChange(e.target.value)}
             placeholder="종목명 또는 종목코드 검색 (예: 삼성전자, 005930, 알테오젠)"
             className="w-full text-sm sm:text-base font-medium outline-hidden text-slate-900 placeholder:text-slate-400"
           />
           {query && (
             <button
-              onClick={() => setQuery('')}
+              onClick={() => onQueryChange('')}
               className="p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
             >
               <X className="w-4 h-4" />
@@ -106,7 +107,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             {popularKeywords.map((k) => (
               <button
                 key={k}
-                onClick={() => setQuery(k)}
+                onClick={() => onQueryChange(k)}
                 className="text-xs bg-white text-slate-700 px-2.5 py-1 rounded-lg border border-slate-200 hover:border-blue-400 hover:text-blue-600 transition-colors shrink-0"
               >
                 {k}

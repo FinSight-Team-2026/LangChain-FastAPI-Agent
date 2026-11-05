@@ -19,6 +19,7 @@ const DashboardContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'watchlist' | 'news-lab' | 'my-page'>('dashboard');
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
 
@@ -38,6 +39,8 @@ const DashboardContent: React.FC = () => {
           setActiveTab(tab);
           setShowComparison(false);
         }}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
         onOpenSearch={() => setIsSearchOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenMyPage={() => {
@@ -310,8 +313,13 @@ const DashboardContent: React.FC = () => {
 
       <SearchModal
         isOpen={isSearchOpen}
-        onClose={() => setIsSearchOpen(false)}
+        onClose={() => {
+          setIsSearchOpen(false);
+          setSearchQuery('');
+        }}
         stocks={MOCK_STOCKS}
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
         onSelectStock={(stock) => setSelectedStock(stock)}
       />
 
