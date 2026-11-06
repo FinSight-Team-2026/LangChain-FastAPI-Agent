@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Star, Sparkles, BarChart3, Newspaper, ExternalLink } from 'lucide-react';
 import { Stock } from '../types/stock';
 import { formatPrice, formatChangeRate, formatChangeAmount, formatVolume, formatTradingValue, getPriceColorClass, getSentimentMeta } from '../utils/formatters';
@@ -28,6 +28,21 @@ interface DailySentimentItem {
   avgScore: number;
 }
 
+interface StockPrediction {
+  stock_code: string;
+  as_of_date: string;
+  prediction: 'UP' | 'DOWN' | 'NEUTRAL' | 'UNCERTAIN';
+  confidence: 'HIGH' | 'MEDIUM' | 'LOW';
+  reason: string;
+  risk_factors: string[];
+}
+
+const getLocalDateString = () => {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+};
+
 interface NewsItem {
   id: number;
   title: string;
@@ -45,6 +60,7 @@ interface RealtimePriceData {
   change: number;
   changeRate: number;
   volume: number;
+  tradingValue: number;
 }
 
 export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClose }) => {
@@ -58,13 +74,24 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
+  const [prediction, setPrediction] = useState<StockPrediction | null>(null);
+  const [predictionLoading, setPredictionLoading] = useState(false);
+  const [predictionError, setPredictionError] = useState<string | null>(null);
+  const predictionAbortRef = useRef<AbortController | null>(null);
+
   const { isInWatchlist, toggleWatchlist } = useAuth();
   const { showToast } = useToast();
+
+  useEffect(() => () => predictionAbortRef.current?.abort(), []);
 
   const targetStock = stock as any;
   const stockCode = targetStock?.code || targetStock?.id || '005930';
 
   useEffect(() => {
+    predictionAbortRef.current?.abort();
+    setPrediction(null);
+    setPredictionError(null);
+    setPredictionLoading(false);
     if (!stock) return;
 
     // 종목 변경 시 이전 종목 잔상 초기화
@@ -143,6 +170,38 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
         setIsLoading(false);
       });
   }, [stock, stockCode]);
+
+  // Prefer the most recent available backend analysis date over the calendar date.
+  const predictionDate = latestSentiment?.targetDate || dailyHistory[dailyHistory.length - 1]?.targetDate || getLocalDateString();
+
+  const requestPrediction = async () => {
+    if (!stock || !predictionDate || predictionLoading) return;
+    predictionAbortRef.current?.abort();
+    const controller = new AbortController();
+    predictionAbortRef.current = controller;
+    setPredictionLoading(true);
+    setPrediction(null);
+    setPredictionError(null);
+
+    try {
+      const url = `http://localhost:8080/api/ai/prediction/${encodeURIComponent(String(stockCode))}?as_of_date=${encodeURIComponent(predictionDate)}`;
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) {
+        throw new Error(`예측 API 응답 오류 (HTTP ${response.status})`);
+      }
+      const result: StockPrediction = await response.json();
+      if (!result || !['UP', 'DOWN', 'NEUTRAL', 'UNCERTAIN'].includes(result.prediction)) {
+        throw new Error('예측 API 응답 형식이 올바르지 않습니다.');
+      }
+      if (!controller.signal.aborted) setPrediction(result);
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        setPredictionError(error instanceof Error ? error.message : '예측 요청에 실패했습니다.');
+      }
+    } finally {
+      if (!controller.signal.aborted) setPredictionLoading(false);
+    }
+  };
 
   if (!stock) return null;
 
@@ -334,6 +393,64 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
               </div>
             </div>
           </div>
+
+          <section className="p-5 rounded-2xl border border-slate-200/80 bg-white space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                <h3 className="font-bold text-slate-900 text-sm">AI 주가 방향 예측</h3>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={requestPrediction}
+                  disabled={predictionLoading || !predictionDate}
+                  className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {predictionLoading ? '분석 중...' : 'AI 예측 실행'}
+                </button>
+              </div>
+            </div>
+
+            {predictionError && (
+              <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                {predictionError} · Spring Boot(8080) 연결 및 분석 기준일의 데이터 존재 여부를 확인해 주세요.
+              </div>
+            )}
+
+            {predictionLoading && (
+              <p role="status" className="text-xs text-slate-500">주가·뉴스 데이터를 분석하고 AI 결과를 기다리는 중입니다.</p>
+            )}
+
+            {prediction && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="rounded-xl bg-slate-50 border border-slate-100 p-4">
+                    <p className="text-[11px] text-slate-500 mb-1">예측 방향</p>
+                    <p className={`text-lg font-extrabold ${prediction.prediction === 'UP' ? 'text-red-600' : prediction.prediction === 'DOWN' ? 'text-blue-600' : 'text-slate-700'}`}>
+                      {({ UP: '상승 예상', DOWN: '하락 예상', NEUTRAL: '중립', UNCERTAIN: '판단 유보' } as const)[prediction.prediction]}
+                    </p>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-slate-100 p-4 space-y-2">
+                  <p className="text-xs font-bold text-slate-900">AI 예측 근거</p>
+                  <p className="text-xs leading-relaxed text-slate-600 whitespace-pre-line">{prediction.reason}</p>
+                </div>
+                {Array.isArray(prediction.risk_factors) && prediction.risk_factors.length > 0 && (
+                  <div className="rounded-xl border border-slate-100 p-4 space-y-2">
+                    <p className="text-xs font-bold text-slate-900">주요 위험 요인</p>
+                    <ul className="list-disc pl-4 space-y-1 text-xs leading-relaxed text-slate-600">
+                      {prediction.risk_factors.map((factor, index) => <li key={index}>{factor}</li>)}
+                    </ul>
+                  </div>
+                )}
+                <p className="text-[11px] text-slate-400">모델의 판단이며 실제 주가 방향이나 확률을 보장하지 않습니다.</p>
+              </div>
+            )}
+            {!prediction && !predictionLoading && !predictionError && (
+              <p className="text-sm text-slate-500">AI가 최근 주가 흐름과 뉴스 감성 분석 결과를 종합하여 주가 방향을 예측합니다.</p>
+            )}
+          </section>
 
           {/* Sentiment Trend Chart */}
           <div className="p-5 rounded-2xl border border-slate-200/80 bg-white">
