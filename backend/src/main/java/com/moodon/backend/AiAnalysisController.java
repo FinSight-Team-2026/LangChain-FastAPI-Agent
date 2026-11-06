@@ -65,4 +65,30 @@ public class AiAnalysisController {
                     .body(Map.of("error", "작업 상태 조회 실패: " + e.getMessage()));
         }
     }
+    
+    // 4. 종목별 다음 거래일 주가 방향 예측
+    @GetMapping("/prediction/{stockCode}")
+    public ResponseEntity<?> getStockPrediction(
+            @PathVariable("stockCode") String stockCode,
+            @RequestParam("as_of_date") String asOfDate) {
+
+        try {
+            Map<?, ?> response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/ai/prediction/{stockCode}")
+                            .queryParam("as_of_date", asOfDate)
+                            .build(stockCode))
+                    .retrieve()
+                    .body(Map.class);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of(
+                            "error", "AI 예측 서버 호출 실패",
+                            "detail", e.getMessage()
+                    ));
+        }
+    }
 }
