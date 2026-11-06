@@ -1,8 +1,11 @@
-
+from pipeline import run_pipeline
+from news_price_analyzer import (
+    analyze_news_timing,
+    calculate_session_agreement
+)
 from datetime import datetime
 from threading import Lock
 from uuid import uuid4
-
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 
 from db_connection import get_db_connection
@@ -137,3 +140,131 @@ def get_job_status(job_id: str):
             )
 
         return job.copy()
+
+
+@app.get("/api/ai/news-price/{stock_code}")
+def get_news_price_analysis(stock_code: str):
+    conn = None
+    cursor = None
+
+    try:
+        # 1. 종목 등록 여부 확인
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT 1 FROM stocks WHERE stock_code = %s",
+            (stock_code,)
+        )
+
+        if cursor.fetchone() is None:
+            raise HTTPException(
+                status_code=404,
+                detail="등록되지 않은 종목입니다."
+            )
+
+        # 2. 기존 뉴스·주가 시차 분석 실행
+        result = analyze_news_timing(stock_code)
+
+        # 3. 분석 결과와 데이터 상태 반환
+        return result
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="뉴스·주가 분석 중 오류가 발생했습니다."
+        )
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if conn is not None:
+            conn.close()
+
+
+
+@app.get("/api/ai/session-statistics/{stock_code}")
+def get_session_statistics(stock_code: str):
+    conn = None
+    cursor = None
+
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # 등록된 종목인지 확인
+        cursor.execute(
+            "SELECT 1 FROM stocks WHERE stock_code = %s",
+            (stock_code,)
+        )
+
+        if cursor.fetchone() is None:
+            raise HTTPException(
+                status_code=404,
+                detail="등록되지 않은 종목입니다."
+            )
+
+        # 시간대별 뉴스·주가 일치율 계산
+        result = calculate_session_agreement(stock_code)
+
+        return result
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="시간대별 뉴스·주가 통계 조회 중 오류가 발생했습니다."
+        )
+
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+        if conn is not None:
+            conn.close()
+
+
+from datetime import date
+from fastapi import Query
+from prediction_agent import (
+    prepare_prediction_data,
+    predict_stock_direction
+)
+
+
+
+@app.get("/api/ai/prediction/{stock_code}")
+def get_stock_prediction(
+    stock_code: str,
+    as_of_date: date = Query(...)
+):
+    try:
+        # date 객체를 문자열로 변환
+        date_str = as_of_date.isoformat()
+
+        data = prepare_prediction_data(
+            stock_code,
+            date_str
+        )
+
+        result = predict_stock_direction(
+            stock_code=stock_code,
+            as_of_date=date_str,
+            analysis_data=data
+        )
+
+        return result
+
+    except Exception:
+        import traceback
+        traceback.print_exc()
+
+        raise HTTPException(
+            status_code=500,
+            detail="주가 방향 예측 중 오류가 발생했습니다."
+        )
