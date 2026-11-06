@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Map;
 
@@ -61,12 +62,22 @@ public class KisService {
         return null;
     }
 
-    // 2. 실시간 시세 조회 및 stocks 테이블 DB 동기화
+    // 2. 실시간 시세 조회 및 stocks 테이블 DB 동기화 (TTL 60초 캐싱 적용)
     @Transactional
     public Stock fetchAndSyncCurrentPrice(String stockCode) {
+        Stock stock = stockRepository.findById(stockCode).orElse(null);
+
+        // [TTL 캐시 검사] 이미 현재가가 존재하고, 마지막 갱신 후 60초가 지나지 않았다면 KIS API 호출 생략 (즉시 응답)
+        if (stock != null && stock.getCurrentPrice() != null && stock.getCurrentPrice() > 0 && stock.getUpdatedAt() != null) {
+            long secondsPassed = Duration.between(stock.getUpdatedAt(), LocalDateTime.now()).getSeconds();
+            if (secondsPassed < 60) {
+                return stock;
+            }
+        }
+
         String token = getAccessToken();
         if (token == null) {
-            return stockRepository.findById(stockCode).orElse(null);
+            return stock;
         }
 
         try {
@@ -90,12 +101,11 @@ public class KisService {
                 long volume = Long.parseLong((String) output.get("acml_vol"));
                 long tradingValue = Long.parseLong((String) output.get("acml_tr_pbmn"));
 
-                Stock stock = stockRepository.findById(stockCode).orElseGet(() -> {
-                    Stock newStock = new Stock();
-                    newStock.setStockCode(stockCode);
-                    newStock.setStockName(stockCode);
-                    return newStock;
-                });
+                if (stock == null) {
+                    stock = new Stock();
+                    stock.setStockCode(stockCode);
+                    stock.setStockName(stockCode);
+                }
 
                 stock.setCurrentPrice(currentPrice);
                 stock.setChangeRate(changeRate);
@@ -109,6 +119,6 @@ public class KisService {
             System.err.println("KIS 시세 조회 실패: " + e.getMessage());
         }
 
-        return stockRepository.findById(stockCode).orElse(null);
+        return stock;
     }
 }

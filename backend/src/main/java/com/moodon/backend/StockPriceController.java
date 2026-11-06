@@ -21,13 +21,17 @@ public class StockPriceController {
         this.stockPriceRepository = stockPriceRepository;
     }
 
-    // 1. 전체 종목 리스트 조회
+    // 1. 종목 검색 및 리스트 조회
     @GetMapping("/stocks")
-    public ResponseEntity<List<Stock>> getAllStocks() {
+    public ResponseEntity<List<Stock>> getStocks(@RequestParam(value = "keyword", required = false) String keyword) {
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String trimmed = keyword.trim();
+            return ResponseEntity.ok(stockRepository.findByStockNameContainingIgnoreCaseOrStockCodeContaining(trimmed, trimmed));
+        }
         return ResponseEntity.ok(stockRepository.findAll());
     }
 
-    // 2. 단일 종목 시세 조회 (KIS 실시간 동기화 포함)
+    // 2. 단일 종목 시세 조회 (KIS 실시간 동기화)
     @GetMapping("/stocks/{stockCode}")
     public ResponseEntity<Stock> getStockPrice(@PathVariable("stockCode") String stockCode) {
         Stock stock = kisService.fetchAndSyncCurrentPrice(stockCode);
