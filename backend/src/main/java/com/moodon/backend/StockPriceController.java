@@ -2,48 +2,24 @@ package com.moodon.backend;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.List;
+import org.springframework.web.client.RestTemplate;
+import java.util.Map;
 
 @RestController
-@RequestMapping("/api/kis")
+@RequestMapping("/api/stocks")
 @CrossOrigin(origins = "*")
 public class StockPriceController {
 
-    private final KisService kisService;
-    private final StockRepository stockRepository;
-    private final StockPriceRepository stockPriceRepository;
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    public StockPriceController(KisService kisService,
-                                StockRepository stockRepository,
-                                StockPriceRepository stockPriceRepository) {
-        this.kisService = kisService;
-        this.stockRepository = stockRepository;
-        this.stockPriceRepository = stockPriceRepository;
-    }
-
-    // 1. 종목 검색 및 리스트 조회
-    @GetMapping("/stocks")
-    public ResponseEntity<List<Stock>> getStocks(@RequestParam(value = "keyword", required = false) String keyword) {
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            String trimmed = keyword.trim();
-            return ResponseEntity.ok(stockRepository.findByStockNameContainingIgnoreCaseOrStockCodeContaining(trimmed, trimmed));
+    @GetMapping("/{stockCode}/price")
+    public ResponseEntity<?> getStockPrice(@PathVariable("stockCode") String stockCode) {
+        try {
+            String url = "https://m.stock.naver.com/api/stock/" + stockCode + "/basic";
+            Map response = restTemplate.getForObject(url, Map.class);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "시세 조회 실패: " + e.getMessage()));
         }
-        return ResponseEntity.ok(stockRepository.findAll());
-    }
-
-    // 2. 단일 종목 시세 조회 (KIS 실시간 동기화)
-    @GetMapping("/stocks/{stockCode}")
-    public ResponseEntity<Stock> getStockPrice(@PathVariable("stockCode") String stockCode) {
-        Stock stock = kisService.fetchAndSyncCurrentPrice(stockCode);
-        if (stock == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(stock);
-    }
-
-    // 3. 종목별 최근 30일 시세 이력 조회
-    @GetMapping("/stocks/{stockCode}/history")
-    public ResponseEntity<List<StockPrice>> getStockHistory(@PathVariable("stockCode") String stockCode) {
-        return ResponseEntity.ok(stockPriceRepository.findTop30ByStockCodeOrderByTradeDateDesc(stockCode));
     }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Star, Sparkles, BarChart3, Newspaper, CheckCircle2, ExternalLink } from 'lucide-react';
+import { X, Star, Sparkles, BarChart3, Newspaper, ExternalLink } from 'lucide-react';
 import { Stock } from '../types/stock';
 import { formatPrice, formatChangeRate, formatChangeAmount, formatVolume, formatTradingValue, getPriceColorClass, getSentimentMeta } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
@@ -40,12 +40,19 @@ interface NewsItem {
   source: string;
 }
 
+interface RealtimePriceData {
+  closePrice: number;
+  change: number;
+  changeRate: number;
+  volume: number;
+}
+
 export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClose }) => {
   const [newsFilter, setNewsFilter] = useState<'all' | 'positive' | 'neutral' | 'negative'>('all');
-  const [chartPeriod, setChartPeriod] = useState<'1일' | '1주' | '1개월' | '3개월' | '1년'>('1일');
   const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
 
   // 백엔드 실데이터 상태
+  const [realtimePrice, setRealtimePrice] = useState<RealtimePriceData | null>(null);
   const [latestSentiment, setLatestSentiment] = useState<LatestSentiment | null>(null);
   const [dailyHistory, setDailyHistory] = useState<DailySentimentItem[]>([]);
   const [newsList, setNewsList] = useState<NewsItem[]>([]);
@@ -60,21 +67,56 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
   useEffect(() => {
     if (!stock) return;
 
+    // 종목 변경 시 이전 종목 잔상 초기화
+    setRealtimePrice(null);
+    setLatestSentiment(null);
+    setDailyHistory([]);
+    setNewsList([]);
     setIsLoading(true);
     const API_BASE = 'http://localhost:8080/api/stocks';
 
+    // 1. 실시간 시세 API & 2. 감성/뉴스 데이터 동시 호출
+    const safeJson = async (res: Response, fallback: any = null) => {
+      if (!res.ok || res.status === 204) return fallback;
+      try {
+        const text = await res.text();
+        return text ? JSON.parse(text) : fallback;
+      } catch {
+        return fallback;
+      }
+    };
+
     Promise.all([
-      fetch(`${API_BASE}/${stockCode}/sentiment/latest`).then(res => res.ok ? res.json() : null),
-      fetch(`${API_BASE}/${stockCode}/sentiment/daily`).then(res => res.ok ? res.json() : []),
-      fetch(`${API_BASE}/${stockCode}/news/summaries?limit=20`).then(res => res.ok ? res.json() : [])
+      fetch(`${API_BASE}/${stockCode}/price`).then(res => safeJson(res, null)),
+      fetch(`${API_BASE}/${stockCode}/sentiment/latest`).then(res => safeJson(res, null)),
+      fetch(`${API_BASE}/${stockCode}/sentiment/daily`).then(res => safeJson(res, [])),
+      fetch(`${API_BASE}/${stockCode}/news/summaries?limit=20`).then(res => safeJson(res, []))
     ])
-      .then(([latestData, dailyData, newsData]) => {
+      .then(([priceData, latestData, dailyData, newsData]) => {
+        // 실시간 시세 파싱
+        if (priceData && priceData.closePrice) {
+          const parsedPrice = parseInt(String(priceData.closePrice || '0').replace(/,/g, ''), 10) || 0;
+          const parsedChange = parseInt(String(priceData.compareToPreviousClosePrice || priceData.changePrice || '0').replace(/,/g, ''), 10) || 0;
+          const parsedChangeRate = parseFloat(priceData.fluctuationsRatio || '0') || 0;
+          const rawVolume = priceData.totalVolume || priceData.accumulatedTradingVolume || priceData.volume || '0';
+          const parsedVolume = parseInt(String(rawVolume).replace(/,/g, ''), 10) || 0;
+          const rawTradingValue = priceData.totalTradeValue || priceData.accumulatedTradingValue || priceData.tradingValue || '0';
+          const parsedTradingValue = parseInt(String(rawTradingValue).replace(/,/g, ''), 10) || 0;
+
+          setRealtimePrice({
+            closePrice: parsedPrice,
+            change: parsedChange,
+            changeRate: parsedChangeRate,
+            volume: parsedVolume,
+            tradingValue: parsedTradingValue
+          });
+        }
+
         if (latestData) {
           setLatestSentiment(latestData);
         }
 
         if (Array.isArray(dailyData) && dailyData.length > 0) {
-          // 일자 오름차순 정렬 (차트 좌->우 시간 흐름)
           const sorted = [...dailyData].reverse();
           setDailyHistory(sorted);
         }
@@ -82,9 +124,9 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
         if (Array.isArray(newsData)) {
           const mappedNews: NewsItem[] = newsData.map((item: any) => ({
             id: item.articleId,
-            title: item.title,
-            snippet: item.summary || item.title,
-            summary: item.summary || '',
+            title: (item.title || '').replace(/<[^>]*>?/g, ''),
+            snippet: (item.summary || item.title || '').replace(/<[^>]*>?/g, ''),
+            summary: (item.summary || '').replace(/<[^>]*>?/g, ''),
             url: item.url,
             publishedAt: item.publishedAt || '',
             sentiment: (item.label || 'neutral').toLowerCase() as any,
@@ -95,7 +137,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
         }
       })
       .catch((err) => {
-        console.error('백엔드 데이터 조회 실패:', err);
+        console.error('데이터 조회 실패:', err);
       })
       .finally(() => {
         setIsLoading(false);
@@ -106,9 +148,18 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
 
   const isWatched = isInWatchlist(targetStock.id);
 
-  // 최신 점수 바인딩: 백엔드 최신 avgScore 우선, 없을 경우 기존값 폴백
-  const currentSentimentScore = latestSentiment ? Math.round(latestSentiment.avgScore * 100) : (targetStock.sentimentScore ?? 50);
-  const sentimentMeta = getSentimentMeta(currentSentimentScore);
+  // 실시간 시세 우선 적용, 없으면 기본 stock 데이터 사용
+  const displayPrice = realtimePrice ? realtimePrice.closePrice : (targetStock.price || 0);
+  const displayChange = realtimePrice ? realtimePrice.change : (targetStock.change || 0);
+  const displayChangeRate = realtimePrice ? realtimePrice.changeRate : (targetStock.changeRate || 0);
+  const displayVolume = realtimePrice ? realtimePrice.volume : (targetStock.volume || 0);
+
+  // 분석 데이터 존재 여부 판단
+  const hasAnalysisData = Boolean(latestSentiment || (newsList && newsList.length > 0));
+  const currentSentimentScore = latestSentiment 
+    ? Math.round(latestSentiment.avgScore * 100) 
+    : (newsList && newsList.length > 0 ? (targetStock.sentimentScore ?? 50) : null);
+  const sentimentMeta = currentSentimentScore !== null ? getSentimentMeta(currentSentimentScore) : { label: '분석 대기', emoji: '⏳' };
 
   const handleToggleWatchlist = () => {
     const added = toggleWatchlist(targetStock.id);
@@ -119,10 +170,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
     }
   };
 
-  // 뉴스 필터링
   const activeNewsSource = newsList.length > 0 ? newsList : (targetStock.news || []);
-
-  // 실제 로딩된 뉴스 기사 기반 감성 건수 계산 (백엔드 통계 폴백)
   const posCount = activeNewsSource.filter((n: any) => n.sentiment === 'positive' || n.sentiment === '호재').length;
   const neuCount = activeNewsSource.filter((n: any) => n.sentiment === 'neutral' || n.sentiment === '중립').length;
   const negCount = activeNewsSource.filter((n: any) => n.sentiment === 'negative' || n.sentiment === '악재').length;
@@ -132,30 +180,17 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
     return item.sentiment === newsFilter;
   });
 
-  // 차트 데이터 바인딩: 백엔드 30일 시계열 데이터 매핑
+  // 차트 데이터
   const rawChartPoints = dailyHistory.length > 0
     ? dailyHistory.map(d => ({
         price: Math.round(d.avgScore * 100),
         date: d.targetDate
       }))
-    : (targetStock.sentimentHistory && targetStock.sentimentHistory.length > 1
-        ? targetStock.sentimentHistory.map((p: any, idx: number, arr: any[]) => {
-            if (p.price <= 100) return p;
-            const baseScore = currentSentimentScore || 75;
-            const firstPrice = arr[0].price || p.price;
-            const diffRatio = (p.price - firstPrice) / (firstPrice || 1);
-            const variation = Math.round(diffRatio * 40) + ((idx % 2 === 0 ? 3 : -2));
-            const calculated = Math.min(95, Math.max(30, baseScore + variation));
-            return { price: calculated, date: p.date };
-          })
-        : [
-            { price: Math.max(30, currentSentimentScore - 8), date: '10.24' },
-            { price: Math.max(30, currentSentimentScore - 5), date: '10.25' },
-            { price: Math.max(30, currentSentimentScore - 12), date: '10.26' },
-            { price: Math.max(30, currentSentimentScore + 2), date: '10.27' },
-            { price: Math.max(30, currentSentimentScore - 3), date: '10.28' },
-            { price: currentSentimentScore, date: '10.29' }
-          ]);
+    : (targetStock.sentimentHistory && targetStock.sentimentHistory.length > 0
+        ? targetStock.sentimentHistory.map((p: any) => ({ price: p.price, date: p.date }))
+        : []);
+
+  const hasValidChartData = rawChartPoints.length > 0 && rawChartPoints.some((p: any) => p.price != null && !isNaN(p.price));
 
   const chartWidth = 600;
   const chartHeight = 180;
@@ -227,11 +262,11 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
               </div>
               <div className="flex items-baseline gap-3 mt-1.5">
                 <span className="text-3xl font-extrabold text-slate-900 num-font tracking-tight">
-                  {formatPrice(targetStock.price || 0)}
+                  {formatPrice(displayPrice)}
                 </span>
-                <div className={`flex items-baseline gap-1 text-sm font-bold ${getPriceColorClass(targetStock.changeRate || 0)}`}>
-                  <span>{formatChangeAmount(targetStock.change || 0)}</span>
-                  <span>({formatChangeRate(targetStock.changeRate || 0)})</span>
+                <div className={`flex items-baseline gap-1 text-sm font-bold ${getPriceColorClass(displayChangeRate)}`}>
+                  <span>{formatChangeAmount(displayChange)}</span>
+                  <span>({formatChangeRate(displayChangeRate)})</span>
                 </div>
               </div>
             </div>
@@ -240,7 +275,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
             <div className="grid grid-cols-2 gap-4 border border-slate-100 bg-slate-50/70 p-3 rounded-2xl text-xs">
               <div>
                 <span className="text-slate-400 block text-[11px]">거래량</span>
-                <span className="font-bold text-slate-800 num-font">{formatVolume(targetStock.volume || 0)}</span>
+                <span className="font-bold text-slate-800 num-font">{formatVolume(displayVolume)}</span>
               </div>
               <div>
                 <span className="text-slate-400 block text-[11px]">거래대금</span>
@@ -266,11 +301,13 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-white shadow-xs border border-slate-100">
-                  <span className="text-2xl">{sentimentMeta.emoji || '📊'}</span>
+                  <span className="text-2xl">{(sentimentMeta as any)?.emoji || '📊'}</span>
                 </div>
                 <div>
                   <div className="text-xs text-slate-500 font-medium">{sentimentMeta.label}</div>
-                  <div className="text-xl font-black text-slate-900 num-font">{currentSentimentScore}점</div>
+                  <div className="text-xl font-black text-slate-900 num-font">
+                    {currentSentimentScore !== null ? `${currentSentimentScore}점` : '-'}
+                  </div>
                 </div>
               </div>
 
@@ -279,19 +316,19 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
                 <div className="bg-white/80 p-2.5 rounded-xl border border-red-100 flex flex-col items-center">
                   <span className="text-[11px] text-[#F04452] font-semibold">호재(긍정)</span>
                   <span className="text-base font-extrabold text-slate-800 num-font">
-                    {latestSentiment?.positiveCount ?? (posCount > 0 ? posCount : (targetStock.positiveCount ?? 0))}건
+                    {latestSentiment ? latestSentiment.positiveCount : (newsList.length > 0 ? posCount : 0)}건
                   </span>
                 </div>
                 <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200 flex flex-col items-center">
                   <span className="text-[11px] text-slate-600 font-semibold">중립</span>
                   <span className="text-base font-extrabold text-slate-800 num-font">
-                    {latestSentiment?.neutralCount ?? (neuCount > 0 ? neuCount : (targetStock.neutralCount ?? 0))}건
+                    {latestSentiment ? latestSentiment.neutralCount : (newsList.length > 0 ? neuCount : 0)}건
                   </span>
                 </div>
                 <div className="bg-white/80 p-2.5 rounded-xl border border-blue-100 flex flex-col items-center">
                   <span className="text-[11px] text-[#3182F6] font-semibold">악재(부정)</span>
                   <span className="text-base font-extrabold text-slate-800 num-font">
-                    {latestSentiment?.negativeCount ?? (negCount > 0 ? negCount : (targetStock.negativeCount ?? 0))}건
+                    {latestSentiment ? latestSentiment.negativeCount : (newsList.length > 0 ? negCount : 0)}건
                   </span>
                 </div>
               </div>
@@ -306,11 +343,17 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
                 <h3 className="font-bold text-slate-900 text-sm">감성 추이 차트 (최근 일별)</h3>
               </div>
               <span className="text-xs text-slate-500 font-mono">
-                {activeHoverPoint ? `${activeHoverPoint.date}: ${activeHoverPoint.price}점` : ''}
+                {hasValidChartData && activeHoverPoint && activeHoverPoint.price != null ? `${activeHoverPoint.date}: ${activeHoverPoint.price}점` : ''}
               </span>
             </div>
 
-            <div className="w-full flex justify-center overflow-hidden">
+            <div className="w-full flex justify-center items-center min-h-[180px] overflow-hidden">
+              {!hasValidChartData ? (
+                <div className="flex flex-col items-center justify-center py-8 text-slate-400">
+                  <span className="text-2xl mb-1.5">📊</span>
+                  <p className="text-xs font-medium">최근 일별 감성 데이터가 없습니다.</p>
+                </div>
+              ) : (
               <svg
                 viewBox={`0 0 ${chartWidth} ${chartHeight}`}
                 className="w-full max-w-[600px] h-[180px] overflow-visible"
@@ -322,12 +365,11 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
                   </linearGradient>
                 </defs>
 
-                {/* Base reference line at 0 */}
                 <line
                   x1={paddingX}
-                  y1={chartHeight - paddingY - ((0 - minPrice) / (maxPrice - minPrice || 1)) * innerHeight}
+                  y1={chartHeight - paddingY}
                   x2={chartWidth - paddingX}
-                  y2={chartHeight - paddingY - ((0 - minPrice) / (maxPrice - minPrice || 1)) * innerHeight}
+                  y2={chartHeight - paddingY}
                   stroke="#E2E8F0"
                   strokeDasharray="4 4"
                 />
@@ -347,6 +389,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
                   />
                 ))}
               </svg>
+              )}
             </div>
           </div>
 
@@ -358,7 +401,6 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
                 <h3 className="font-bold text-slate-900 text-sm">관련 뉴스 & AI 3줄 요약</h3>
               </div>
 
-              {/* Filter tabs */}
               <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs">
                 {(['all', 'positive', 'neutral', 'negative'] as const).map(tab => (
                   <button
@@ -376,7 +418,6 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
               </div>
             </div>
 
-            {/* News Articles Horizontal Scroll Container */}
             <div className="flex overflow-x-auto pb-4 gap-4 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
               {filteredNews.length === 0 ? (
                 <div className="w-full text-center py-8 text-xs text-slate-400">
@@ -425,7 +466,6 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
                           </h4>
                         </a>
 
-                        {/* Gemini 3-line summary */}
                         <div className="text-[11px] text-slate-600 leading-relaxed whitespace-pre-line bg-white/70 p-2.5 rounded-lg border border-slate-100 line-clamp-4">
                           {news.snippet}
                         </div>

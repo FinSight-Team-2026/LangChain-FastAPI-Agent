@@ -21,8 +21,7 @@ public interface NewsSentimentRepository extends JpaRepository<NewsArticle, Long
         FROM news_articles a
         INNER JOIN news_sentiments s ON a.article_id = s.article_id
         WHERE a.stock_code = :stockCode
-          AND a.is_stock_relevant = 1
-          AND a.analysis_status = 'DONE'
+          AND (a.is_stock_relevant = 1 OR a.is_stock_relevant IS NULL)
         ORDER BY a.published_at DESC
         LIMIT :limit
     """, nativeQuery = true)

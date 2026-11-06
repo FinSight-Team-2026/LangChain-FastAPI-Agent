@@ -1,15 +1,15 @@
 export const formatPrice = (price: number): string => {
-  return price.toLocaleString('ko-KR') + '원';
+  return (price || 0).toLocaleString('ko-KR') + '원';
 };
 
 export const formatNumber = (num: number): string => {
-  return num.toLocaleString('ko-KR');
+  return (num || 0).toLocaleString('ko-KR');
 };
 
 export const formatVolume = (volume: number): string => {
-  if (volume >= 10000000) {
-    const man = Math.floor(volume / 10000);
-    return `${(man / 10000).toFixed(1)}억 주`;
+  if (!volume) return '0주';
+  if (volume >= 100000000) {
+    return `${(volume / 100000000).toFixed(1)}억 주`;
   }
   if (volume >= 10000) {
     return `${Math.floor(volume / 10000).toLocaleString('ko-KR')}만 주`;
@@ -17,13 +17,22 @@ export const formatVolume = (volume: number): string => {
   return `${volume.toLocaleString('ko-KR')}주`;
 };
 
-export const formatTradingValue = (valueIn100M: number): string => {
-  if (valueIn100M >= 10000) {
-    const jo = Math.floor(valueIn100M / 10000);
-    const uk = valueIn100M % 10000;
+// 원(₩) 단위 또는 억 단위 모두 자동 판별해 깔끔하게 표기
+export const formatTradingValue = (value: number): string => {
+  if (!value) return '0원';
+  
+  // 10억 원 이상 큰 금액(원 단위로 들어온 경우) -> 억 단위로 환산
+  let inUk = value;
+  if (value > 1000000000) {
+    inUk = Math.floor(value / 100000000);
+  }
+
+  if (inUk >= 10000) {
+    const jo = Math.floor(inUk / 10000);
+    const uk = inUk % 10000;
     return uk > 0 ? `${jo}조 ${uk.toLocaleString('ko-KR')}억` : `${jo}조 원`;
   }
-  return `${valueIn100M.toLocaleString('ko-KR')}억`;
+  return `${inUk.toLocaleString('ko-KR')}억 원`;
 };
 
 export const formatChangeRate = (rate: number): string => {
@@ -38,12 +47,6 @@ export const formatChangeAmount = (change: number): string => {
   return `- 0`;
 };
 
-/**
- * Korean Stock Market Color Convention:
- * Positive (Up / 긍정) -> Red (#F04452)
- * Negative (Down / 부정) -> Blue (#3182F6)
- * Neutral / Flat -> Slate/Gray (#8B95A1)
- */
 export const getPriceColorClass = (changeRate: number): string => {
   if (changeRate > 0) return 'text-[#F04452]';
   if (changeRate < 0) return 'text-[#3182F6]';
