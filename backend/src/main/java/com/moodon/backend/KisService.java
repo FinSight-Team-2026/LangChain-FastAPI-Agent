@@ -9,6 +9,8 @@ import org.springframework.web.client.RestClient;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -120,5 +122,44 @@ public class KisService {
         }
 
         return stock;
+    }
+
+    // 3. 국내주식 기간별 시세 조회 (과거 N영업일 일별 주가 리스트 반환)
+    @SuppressWarnings("rawtypes")
+    public List fetchDailyPriceChart(String stockCode, String startDate, String endDate) {
+        String token = getAccessToken();
+        if (token == null) {
+            return Collections.emptyList();
+        }
+
+        try {
+            Map<?, ?> response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/uapi/domestic-stock/v1/quotations/inquire-daily-itemchartprice")
+                            .queryParam("FID_COND_MRKT_DIV_CODE", "J")
+                            .queryParam("FID_INPUT_ISCD", stockCode)
+                            .queryParam("FID_INPUT_DATE_1", startDate) // 시작일 (YYYYMMDD)
+                            .queryParam("FID_INPUT_DATE_2", endDate)   // 종료일 (YYYYMMDD)
+                            .queryParam("FID_PERIOD_DIV_CODE", "D")   // 일별
+                            .queryParam("FID_ORG_ADJ_PRC", "0")       // 수정주가 반영
+                            .build())
+                    .header("authorization", "Bearer " + token)
+                    .header("appkey", appKey)
+                    .header("appsecret", appSecret)
+                    .header("tr_id", "FHKST03010100")
+                    .retrieve()
+                    .body(Map.class);
+
+            if (response != null && response.containsKey("output2")) {
+                Object output2 = response.get("output2");
+                if (output2 instanceof List) {
+                    return (List) output2;
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("KIS 기간별 시세 조회 실패: " + e.getMessage());
+        }
+
+        return Collections.emptyList();
     }
 }
