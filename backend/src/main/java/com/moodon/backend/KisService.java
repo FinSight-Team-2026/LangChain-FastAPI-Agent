@@ -162,4 +162,38 @@ public class KisService {
 
         return Collections.emptyList();
     }
+
+    // 4. KOSPI 실시간 업종 지수 및 등락률 조회 (업종코드: 0001 코스피)
+    public Map<String, Object> fetchKospiIndex() {
+        String token = getAccessToken();
+        if (token == null) {
+            return Map.of("index", 2540.30, "changeRate", -1.15);
+        }
+
+        try {
+            Map<?, ?> response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/uapi/domestic-stock/v1/quotations/inquire-index-price")
+                            .queryParam("FID_COND_MRKT_DIV_CODE", "U")
+                            .queryParam("FID_INPUT_ISCD", "0001")
+                            .build())
+                    .header("authorization", "Bearer " + token)
+                    .header("appkey", appKey)
+                    .header("appsecret", appSecret)
+                    .header("tr_id", "FHKUP03500100")
+                    .retrieve()
+                    .body(Map.class);
+
+            if (response != null && response.containsKey("output")) {
+                Map<?, ?> output = (Map<?, ?>) response.get("output");
+                double index = Double.parseDouble(String.valueOf(output.get("bstp_nmix_prpr"))); // 업종 현재 지수
+                double changeRate = Double.parseDouble(String.valueOf(output.get("bstp_nmix_prdy_ctrt"))); // 등락률
+                return Map.of("index", index, "changeRate", changeRate);
+            }
+        } catch (Exception e) {
+            System.err.println("KOSPI 지수 조회 실패 (기본값 대체): " + e.getMessage());
+        }
+
+        return Map.of("index", 2540.30, "changeRate", -1.15);
+    }
 }
