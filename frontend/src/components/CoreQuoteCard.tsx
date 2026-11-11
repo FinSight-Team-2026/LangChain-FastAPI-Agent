@@ -7,11 +7,28 @@ interface CoreQuoteCardProps {
 }
 
 export const CoreQuoteCard: React.FC<CoreQuoteCardProps> = ({ quote }) => {
-  const isUp = quote.changeRate >= 0;
+  const safeQuote = {
+    code: quote.code ?? '',
+    englishName: quote.englishName ?? '',
+    currentPrice: Number(quote.currentPrice ?? 0),
+    changePrice: Number(quote.changePrice ?? 0),
+    changeRate: Number(quote.changeRate ?? 0),
+    high52w: Number(quote.high52w ?? 0),
+    low52w: Number(quote.low52w ?? 0),
+    openPrice: Number(quote.openPrice ?? 0),
+    highPrice: Number(quote.highPrice ?? 0),
+    lowPrice: Number(quote.lowPrice ?? 0),
+    volume: Number(quote.volume ?? 0),
+    tradingValue: Number(quote.tradingValue ?? 0),
+    prevClosePrice: Number(quote.prevClosePrice ?? 0),
+    marketCap: Number(quote.marketCap ?? 0),
+  };
+
+  const isUp = safeQuote.changeRate >= 0;
 
   // 52W range progress calculation (0 to 100%)
-  const range52w = quote.high52w - quote.low52w;
-  const current52wPos = range52w > 0 ? ((quote.currentPrice - quote.low52w) / range52w) * 100 : 50;
+  const range52w = safeQuote.high52w - safeQuote.low52w;
+  const current52wPos = range52w > 0 ? ((safeQuote.currentPrice - safeQuote.low52w) / range52w) * 100 : 50;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs flex flex-col justify-between h-full">
@@ -20,10 +37,10 @@ export const CoreQuoteCard: React.FC<CoreQuoteCardProps> = ({ quote }) => {
         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-100/80">
-              {quote.code}
+              {safeQuote.code}
             </span>
             <span className="text-xs text-slate-500 font-medium">
-              {quote.englishName}
+              {safeQuote.englishName}
             </span>
           </div>
 
@@ -45,7 +62,7 @@ export const CoreQuoteCard: React.FC<CoreQuoteCardProps> = ({ quote }) => {
 
           <div className="flex items-baseline justify-between flex-wrap gap-2">
             <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight tabular-nums">
-              {quote.currentPrice.toLocaleString()}
+              {safeQuote.currentPrice.toLocaleString()}
               <span className="text-lg font-bold text-slate-700 ml-1">원</span>
             </span>
 
@@ -63,8 +80,8 @@ export const CoreQuoteCard: React.FC<CoreQuoteCardProps> = ({ quote }) => {
               )}
               <span>
                 {isUp ? '+' : ''}
-                {quote.changePrice.toLocaleString()}원 ({isUp ? '+' : ''}
-                {quote.changeRate.toFixed(2)}%)
+                {safeQuote.changePrice.toLocaleString()}원 ({isUp ? '+' : ''}
+                {safeQuote.changeRate.toFixed(2)}%)
               </span>
             </div>
           </div>
@@ -74,13 +91,13 @@ export const CoreQuoteCard: React.FC<CoreQuoteCardProps> = ({ quote }) => {
         <div className="py-3.5 border-b border-slate-100">
           <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
             <span>
-              52주 최저 <strong className="text-slate-800 font-bold tabular-nums">{quote.low52w.toLocaleString()}원</strong>
+              52주 최저 <strong className="text-slate-800 font-bold tabular-nums">{safeQuote.low52w.toLocaleString()}원</strong>
             </span>
             <span className="font-semibold text-blue-600">
               52주 위치 {current52wPos.toFixed(1)}%
             </span>
             <span>
-              52주 최고 <strong className="text-slate-800 font-bold tabular-nums">{quote.high52w.toLocaleString()}원</strong>
+              52주 최고 <strong className="text-slate-800 font-bold tabular-nums">{safeQuote.high52w.toLocaleString()}원</strong>
             </span>
           </div>
 
@@ -97,21 +114,21 @@ export const CoreQuoteCard: React.FC<CoreQuoteCardProps> = ({ quote }) => {
           <div className="bg-slate-50/90 p-2.5 rounded-xl border border-slate-100 text-center">
             <span className="text-[11px] text-slate-500 block">시가</span>
             <span className="text-xs sm:text-sm font-bold text-slate-800 tabular-nums">
-              {quote.openPrice.toLocaleString()}원
+              {safeQuote.openPrice.toLocaleString()}원
             </span>
           </div>
 
           <div className="bg-slate-50/90 p-2.5 rounded-xl border border-slate-100 text-center">
             <span className="text-[11px] text-rose-500 font-medium block">고가</span>
             <span className="text-xs sm:text-sm font-bold text-rose-600 tabular-nums">
-              {quote.highPrice.toLocaleString()}원
+              {safeQuote.highPrice.toLocaleString()}원
             </span>
           </div>
 
           <div className="bg-slate-50/90 p-2.5 rounded-xl border border-slate-100 text-center">
             <span className="text-[11px] text-blue-500 font-medium block">저가</span>
             <span className="text-xs sm:text-sm font-bold text-blue-600 tabular-nums">
-              {quote.lowPrice.toLocaleString()}원
+              {safeQuote.lowPrice.toLocaleString()}원
             </span>
           </div>
         </div>
@@ -122,20 +139,20 @@ export const CoreQuoteCard: React.FC<CoreQuoteCardProps> = ({ quote }) => {
         <div>
           <span className="text-[11px] text-slate-500 block">거래량 (누적)</span>
           <span className="font-extrabold text-slate-900 tabular-nums">
-            {quote.volume.toLocaleString()}주
+            {safeQuote.volume.toLocaleString()}주
           </span>
           <span className="text-[10px] text-slate-500 block tabular-nums">
-            거래대금 약 {quote.tradingValue.toLocaleString()}억
+            거래대금 약 {safeQuote.tradingValue.toLocaleString()}억
           </span>
         </div>
 
         <div className="text-right">
           <span className="text-[11px] text-slate-500 block">전일 종가</span>
           <span className="font-extrabold text-slate-800 tabular-nums">
-            {quote.prevClosePrice.toLocaleString()}원
+            {safeQuote.prevClosePrice.toLocaleString()}원
           </span>
           <span className="text-[10px] text-slate-500 block">
-            시총 {(quote.marketCap / 10000).toFixed(1)}조 원
+            시총 {(safeQuote.marketCap / 10000).toFixed(1)}조 원
           </span>
         </div>
       </div>
