@@ -1,37 +1,45 @@
 import React from 'react';
 import { STOCKS_DATA } from '../data/stocks';
+import { Stock } from '../types/stock';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface StockQuickSelectorProps {
   selectedStockId: string;
   onSelectStock: (stockId: string) => void;
+  stocksData?: Record<string, Stock>;
 }
 
 export const StockQuickSelector: React.FC<StockQuickSelectorProps> = ({
   selectedStockId,
   onSelectStock,
+  stocksData,
 }) => {
-  const stockList = Object.values(STOCKS_DATA);
+  // 외부에서 데이터가 안 넘어오면 기본 STOCKS_DATA를 fallback으로 사용
+  const targetData = stocksData && Object.keys(stocksData).length > 0 ? stocksData : STOCKS_DATA;
+  const stockList = Object.values(targetData);
 
   return (
-    <div className="w-full">
+    <div className="w-full mb-4">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
           <span>주요 분석 종목 퀵 셀렉터</span>
+          <span className="text-slate-600 font-normal">· 5대 핵심주</span>
         </h2>
-        <span className="text-[11px] text-slate-600 hidden sm:inline">
-          종목을 선택하면 7일 감성 지수와 패닉 디펜스 지표가 자동 갱신됩니다
-        </span>
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-200">
         {stockList.map((stock) => {
-          const isSelected = selectedStockId === stock.id;
-          const isUp = stock.quote.changeRate >= 0;
+          if (!stock) return null;
+
+          const quote = stock.quote ?? {};
+          const currentPrice = Number(quote.currentPrice ?? stock.price ?? 0);
+          const changeRate = Number(quote.changeRate ?? stock.changeRate ?? 0);
+          const isSelected = selectedStockId === stock.id || selectedStockId === stock.code;
+          const isUp = changeRate >= 0;
 
           return (
             <button
-              key={stock.id}
+              key={stock.id || stock.code}
               onClick={() => onSelectStock(stock.id)}
               className={`flex-1 min-w-[130px] sm:min-w-[155px] p-2.5 rounded-xl text-left border transition-all cursor-pointer relative ${
                 isSelected
@@ -54,7 +62,7 @@ export const StockQuickSelector: React.FC<StockQuickSelectorProps> = ({
 
               <div className="mt-1 flex items-baseline justify-between gap-1">
                 <span className="text-xs sm:text-sm font-extrabold text-slate-900 tabular-nums">
-                  {stock.quote.currentPrice.toLocaleString()}원
+                  {currentPrice.toLocaleString()}원
                 </span>
 
                 <span
@@ -68,14 +76,14 @@ export const StockQuickSelector: React.FC<StockQuickSelectorProps> = ({
                     <TrendingDown className="w-3 h-3 mr-0.5 inline" />
                   )}
                   {isUp ? '+' : ''}
-                  {stock.quote.changeRate.toFixed(2)}%
+                  {changeRate.toFixed(2)}%
                 </span>
               </div>
 
               {/* Status Indicator */}
               <div className="mt-1 flex items-center justify-between text-[10px]">
-                <span className="text-slate-600">감성 {stock.sentimentScore}점</span>
-                {stock.panicDefense.isActive ? (
+                <span className="text-slate-600">감성 {stock.sentimentScore ?? 50}점</span>
+                {stock.panicDefense?.isActive ? (
                   <span className="font-semibold text-amber-600">
                     패닉 디펜스
                   </span>
@@ -85,7 +93,7 @@ export const StockQuickSelector: React.FC<StockQuickSelectorProps> = ({
                       isSelected ? 'text-blue-600 font-medium' : 'text-slate-600'
                     }
                   >
-                    {stock.sentimentStatus}
+                    {stock.sentimentStatus || '중립'}
                   </span>
                 )}
               </div>
