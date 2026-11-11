@@ -12,6 +12,7 @@ __pycache__/
 *.pyc
 .vscode/.venv/
 .env
+<<<<<<< HEAD
 
 .venv/
 backend/venv/
@@ -19,3 +20,7 @@ backend/.gradle/
 .venv/
 .vscode/
 backend/bin/
+=======
+.properties
+.venv/
+>>>>>>> 693164450bd2068b7011fb1b0b4c3fa33145e219

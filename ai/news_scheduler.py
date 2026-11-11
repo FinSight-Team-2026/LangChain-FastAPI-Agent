@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 """3시간 간격 뉴스 수집/분석 스케줄러. 실행 중 프로세스를 유지해야 함."""
+=======
+"""환경변수로 실행 주기를 설정하는 뉴스 수집/분석 스케줄러."""
+>>>>>>> 693164450bd2068b7011fb1b0b4c3fa33145e219
 import argparse
 import logging
 import os
@@ -26,7 +30,11 @@ def main():
     if args.once:
         run_once()
         return
+<<<<<<< HEAD
     hours = float(os.getenv('NEWS_CRAWL_INTERVAL_HOURS', '3'))
+=======
+    hours = float(os.getenv('NEWS_CRAWL_INTERVAL_HOURS', '2'))
+>>>>>>> 693164450bd2068b7011fb1b0b4c3fa33145e219
     if hours <= 0:
         raise ValueError('NEWS_CRAWL_INTERVAL_HOURS는 0보다 커야 합니다.')
     interval_seconds = hours * 3600
