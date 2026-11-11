@@ -1,20 +1,13 @@
-
 package com.moodon.backend;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-@Slf4j
 @RestController
 @RequestMapping("/api")
 @CrossOrigin(origins = "*")
@@ -23,21 +16,24 @@ public class StockAnalysisController {
 
     private final KisService kisService;
 
-    private double toDouble(Object value, double defaultValue) {
-        if (value instanceof Number) {
-            return ((Number) value).doubleValue();
-        }
-        return defaultValue;
+    // 1. 오늘의 주식 용어 API
+    @GetMapping({"/terms/today", "/ai/term/today", "/terms/random"})
+    public ResponseEntity<?> getTodayTerm() {
+        Map<String, Object> term = new HashMap<>();
+        term.put("id", 1);
+        term.put("term", "눌림목 매수");
+        term.put("definition", "주가가 강한 상승 추세를 이어가던 중 단기 차익 실현 매물로 인해 일시적으로 조정을 받는 구간에서 진입하는 전략입니다.");
+        term.put("example", "20일 이동평균선 부근까지 지수가 완만히 내려앉을 때 분할 매수로 접근하는 것이 대표적입니다.");
+        term.put("category", "매매 기법");
+        return ResponseEntity.ok(term);
     }
 
+    // 2. 메인 대시보드 API
     @GetMapping("/dashboard")
     public ResponseEntity<DashboardResponseDto> getDashboard() {
         Map<String, Object> kospiData = kisService.fetchKospiIndex();
-
-        double kospiIndex = toDouble(
-                kospiData != null ? kospiData.get("index") : null, 2544.40);
-        double kospiChange = toDouble(
-                kospiData != null ? kospiData.get("changeRate") : null, -1.15);
+        double kospiIndex = (double) kospiData.getOrDefault("index", 2540.30);
+        double kospiChange = (double) kospiData.getOrDefault("changeRate", -1.15);
 
         String marketMood = kospiChange > 0.5 ? "KOSPI 상승세 지속 중" :
                 (kospiChange < -0.5 ? "KOSPI 조정 및 관망세" : "KOSPI 보합권 횡보");
@@ -47,19 +43,12 @@ public class StockAnalysisController {
         for (StockTarget target : StockTarget.values()) {
             Stock syncedStock = kisService.fetchAndSyncCurrentPrice(target.getCode());
 
-            int defaultSentiment = target.getCode().equals("000660") ? 85 :
-                    (target.getCode().equals("005930") ? 65 :
-                            (target.getCode().equals("009150") ? 78 :
-                                    (target.getCode().equals("005380") ? 72 : 74)));
-
             stockSummaries.add(DashboardResponseDto.StockSummary.builder()
                     .stockCode(target.getCode())
                     .stockName(target.getName())
-                    .currentPrice(syncedStock != null && syncedStock.getCurrentPrice() != null
-                            ? syncedStock.getCurrentPrice() : 0)
-                    .changeRate(syncedStock != null && syncedStock.getChangeRate() != null
-                            ? syncedStock.getChangeRate().doubleValue() : 0.0)
-                    .sentimentScore(defaultSentiment)
+                    .currentPrice(syncedStock != null && syncedStock.getCurrentPrice() != null ? syncedStock.getCurrentPrice() : 0)
+                    .changeRate(syncedStock != null && syncedStock.getChangeRate() != null ? syncedStock.getChangeRate().doubleValue() : 0.0)
+                    .sentimentScore(75)
                     .build());
         }
 
@@ -75,143 +64,41 @@ public class StockAnalysisController {
         return ResponseEntity.ok(response);
     }
 
+    // 3. 종목 상세 전체 뷰 API
     @GetMapping("/stocks/{code}/detail")
-    public ResponseEntity<StockDataResponseDto> getStockDetail(
-            @PathVariable("code") String code) {
+    public ResponseEntity<StockDataResponseDto> getStockDetail(@PathVariable String code) {
+        String stockName = resolveStockName(code);
 
-        String rawCode = (code == null || code.trim().isEmpty()) ? "035420" : code.trim();
-        String targetCode = "035420";
-        String stockName = "NAVER";
+        Stock stock = kisService.fetchAndSyncCurrentPrice(code);
+        int currentPrice = (stock != null && stock.getCurrentPrice() != null) ? stock.getCurrentPrice() : 0;
+        double changeRate = (stock != null && stock.getChangeRate() != null) ? stock.getChangeRate().doubleValue() : 0.0;
+        long volume = (stock != null && stock.getVolume() != null) ? stock.getVolume() : 0L;
+        long tradingValue = (stock != null && stock.getTradingValue() != null) ? stock.getTradingValue() : 0L;
 
-        if (rawCode.equals("000660") || rawCode.contains("SK") || rawCode.equalsIgnoreCase("SK_HYNIX")) {
-            targetCode = "000660";
-            stockName = "SK하이닉스";
-        } else if (rawCode.equals("005930") || rawCode.contains("삼성전자") || rawCode.equalsIgnoreCase("SAMSUNG_ELECTRONICS")) {
-            targetCode = "005930";
-            stockName = "삼성전자";
-        } else if (rawCode.equals("009150") || rawCode.contains("삼성전기") || rawCode.equalsIgnoreCase("SAMSUNG_ELECTRO_MECHANICS")) {
-            targetCode = "009150";
-            stockName = "삼성전기";
-        } else if (rawCode.equals("005380") || rawCode.contains("현대차") || rawCode.equalsIgnoreCase("HYUNDAI_MOTOR")) {
-            targetCode = "005380";
-            stockName = "현대차";
-        } else if (rawCode.equals("035420") || rawCode.contains("NAVER")) {
-            targetCode = "035420";
-            stockName = "NAVER";
-        } else {
-            for (StockTarget target : StockTarget.values()) {
-                if (target.getCode().equals(rawCode) || target.name().equalsIgnoreCase(rawCode)) {
-                    targetCode = target.getCode();
-                    stockName = target.getName();
-                    break;
-                }
-            }
-        }
+        Map<String, Object> kospiData = kisService.fetchKospiIndex();
+        double kospiIndex = (double) kospiData.getOrDefault("index", 2540.30);
+        double kospiChangePercent = (double) kospiData.getOrDefault("changeRate", -1.15);
 
-        Stock stock = kisService.fetchAndSyncCurrentPrice(targetCode);
-
-        int currentPrice = (stock != null && stock.getCurrentPrice() != null && stock.getCurrentPrice() > 0)
-                ? stock.getCurrentPrice()
-                : (targetCode.equals("000660") ? 1248000 :
-                (targetCode.equals("005930") ? 201750 :
-                (targetCode.equals("009150") ? 887000 :
-                (targetCode.equals("005380") ? 271750 : 192600))));
-
-        double changeRate = stock != null && stock.getChangeRate() != null
-                ? stock.getChangeRate().doubleValue() : 1.25;
-        long volume = stock != null && stock.getVolume() != null
-                ? stock.getVolume() : 420000L;
-        long tradingValue = stock != null && stock.getTradingValue() != null
-                ? stock.getTradingValue() : 95000000000L;
-
-        double kospiIndex = 2544.40;
-        double kospiChangePercent = -1.15;
-
-        try {
-            Map<String, Object> kospiData = kisService.fetchKospiIndex();
-
-            if (kospiData != null) {
-                kospiIndex = toDouble(kospiData.get("index"), kospiIndex);
-                kospiChangePercent = toDouble(
-                        kospiData.get("changeRate"), kospiChangePercent);
-            }
-        } catch (Exception e) {
-            log.warn("상세 API 코스피 지수 실시간 조회 중 예외 발생: {}", e.getMessage());
-        }
-
-        LocalDate today = LocalDate.now();
-        String endDate = today.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String startDateYear = today.minusYears(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String startDate7Days = today.minusDays(15).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-
-        List rawCandles = kisService.fetchDailyPriceChart(targetCode, startDateYear, endDate);
-        List<StockDataResponseDto.YearlyCandlePointDto> yearlyChartData =
-                buildYearlyChartData(rawCandles);
+        String endDate = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String startDate = LocalDate.now().minusYears(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        List rawCandles = kisService.fetchDailyPriceChart(code, startDate, endDate);
+        List<StockDataResponseDto.YearlyCandlePointDto> yearlyChartData = buildYearlyChartData(rawCandles);
 
         double latestMa20 = yearlyChartData.isEmpty() ? currentPrice :
                 yearlyChartData.get(yearlyChartData.size() - 1).getMa20();
 
-        List rawStock7d = kisService.fetchDailyPriceChart(targetCode, startDate7Days, endDate);
-        List rawKospi7d = kisService.fetchDailyPriceChart("0001", startDate7Days, endDate);
-
-        int sentimentScore;
-        int pos, neu, neg;
-        List<StockDataResponseDto.NewsItemDto> newsList;
-
-        if (targetCode.equals("000660")) {
-            sentimentScore = 85; pos = 80; neu = 14; neg = 6;
-            newsList = List.of(
-                StockDataResponseDto.NewsItemDto.builder().id("1").title("고대역폭 메모리(HBM) 글로벌 수요 독점 가속화").source("서울경제").timeAgo("30분 전").sentiment("positive").sentimentLabel("호재").summary("AI 가속기 시장 확대에 따라 차세대 HBM 공급 계약 체결 소식이 전해졌습니다.").build(),
-                StockDataResponseDto.NewsItemDto.builder().id("2").title("외국인·기관 대규모 순매수 유입 지속").source("한국경제").timeAgo("2시간 전").sentiment("positive").sentimentLabel("호재").summary("반도체 업황 턴어라운드 기대감에 양대 주수급 주체의 매수세가 집중되고 있습니다.").build(),
-                StockDataResponseDto.NewsItemDto.builder().id("3").title("글로벌 반도체 공급망 가격 변동성 점검").source("연합인포맥스").timeAgo("4시간 전").sentiment("neutral").sentimentLabel("이슈").summary("단기 가격 급등에 따른 숨고르기 장세가 일부 나타나고 있습니다.").build()
-            );
-        } else if (targetCode.equals("005930")) {
-            sentimentScore = 65; pos = 60; neu = 25; neg = 15;
-            newsList = List.of(
-                StockDataResponseDto.NewsItemDto.builder().id("1").title("파운드리 사업부문 신규 고객사 확보 추진").source("전자신문").timeAgo("1시간 전").sentiment("positive").sentimentLabel("호재").summary("선단 공정 수율 개선과 함께 대형 글로벌 팹리스 수주 기대감이 유입 중입니다.").build(),
-                StockDataResponseDto.NewsItemDto.builder().id("2").title("스마트폰 부문 글로벌 점유율 방어 주력").source("매일경제").timeAgo("3시간 전").sentiment("neutral").sentimentLabel("이슈").summary("경쟁사 공세 속 프리미엄 라인업 판매 추이를 관망하는 분위기입니다.").build(),
-                StockDataResponseDto.NewsItemDto.builder().id("3").title("메모리 반도체 재고 조정 마무리 국면").source("머니투데이").timeAgo("5시간 전").sentiment("positive").sentimentLabel("호재").summary("하반기 서버용 메모리 수요 회복세가 뚜렷해지고 있습니다.").build()
-            );
-        } else if (targetCode.equals("009150")) {
-            sentimentScore = 78; pos = 75; neu = 18; neg = 7;
-            newsList = List.of(
-                StockDataResponseDto.NewsItemDto.builder().id("1").title("전장용 MLCC(적층세라믹콘덴서) 공급 확대").source("디지털타임스").timeAgo("45분 전").sentiment("positive").sentimentLabel("호재").summary("전기차 및 자율주행 부품 향 고부가가치 제품 비중이 빠르게 증가하고 있습니다.").build(),
-                StockDataResponseDto.NewsItemDto.builder().id("2").title("기판(Substrate) 사업부 실적 개선 가시화").source("연합뉴스").timeAgo("3시간 전").sentiment("positive").sentimentLabel("호재").summary("고성능 컴퓨팅 기판 수요 증가로 수익성 개선 폭이 확대되는 추세입니다.").build(),
-                StockDataResponseDto.NewsItemDto.builder().id("3").title("환율 변동에 따른 단기 실적 영향 제한적").source("이데일리").timeAgo("6시간 전").sentiment("neutral").sentimentLabel("이슈").summary("주요 수출국 환율 움직임에 연동된 완만한 흐름을 보이고 있습니다.").build()
-            );
-        } else if (targetCode.equals("005380")) {
-            sentimentScore = 72; pos = 70; neu = 20; neg = 10;
-            newsList = List.of(
-                StockDataResponseDto.NewsItemDto.builder().id("1").title("북미 하이브리드 및 전기차 판매 호조 이어져").source("한국경제").timeAgo("1시간 전").sentiment("positive").sentimentLabel("호재").summary("친환경차 라인업의 북미 시장 점유율 상승세가 실적을 견인하고 있습니다.").build(),
-                StockDataResponseDto.NewsItemDto.builder().id("2").title("적극적 주주환원 정책 및 자사주 매입 효과").source("파이낸셜뉴스").timeAgo("3시간 전").sentiment("positive").sentimentLabel("호재").summary("밸류업 프로그램에 부응하는 주주가치 제고 행보가 투자 심리를 지지합니다.").build(),
-                StockDataResponseDto.NewsItemDto.builder().id("3").title("글로벌 완성차 경쟁 심화 모니터링 필요").source("매일경제").timeAgo("5시간 전").sentiment("neutral").sentimentLabel("이슈").summary("현지 가격 경쟁 및 보조금 정책 변화에 따른 관망세가 혼재되어 있습니다.").build()
-            );
-        } else {
-            sentimentScore = 74; pos = 72; neu = 20; neg = 8;
-            newsList = List.of(
-                StockDataResponseDto.NewsItemDto.builder().id("1").title("AI 기반 검색 고도화 및 광고 매출 성장세").source("연합인포맥스").timeAgo("1시간 전").sentiment("positive").sentimentLabel("호재").summary("생성형 AI 서비스 도입 이후 플랫폼 체류 시간과 광고 효율이 동반 상승 중입니다.").build(),
-                StockDataResponseDto.NewsItemDto.builder().id("2").title("이커머스 생태계 확장 및 글로벌 제휴 강화").source("한국경제").timeAgo("3시간 전").sentiment("positive").sentimentLabel("호재").summary("커머스 부문의 견조한 거래액 유지와 함께 수익 다각화가 진행되고 있습니다.").build(),
-                StockDataResponseDto.NewsItemDto.builder().id("3").title("플랫폼 규제 이슈 및 매크로 지수 영향 소강").source("매일경제").timeAgo("5시간 전").sentiment("neutral").sentimentLabel("이슈").summary("대외 불확실성 완화 속 실적 펀더멘털 중심의 수급이 유입되고 있습니다.").build()
-            );
-        }
-
-        List<StockDataResponseDto.DailyMetricDto> metrics7d =
-                buildMetrics7d(rawStock7d, rawKospi7d, currentPrice, kospiIndex, sentimentScore);
-
-        StockDataResponseDto.PanicDefenseInfoDto panicDefense =
-                buildPanicDefense(changeRate, kospiChangePercent, stockName);
-        StockDataResponseDto.FinalConclusionDto finalConclusion =
-                buildFinalConclusion(currentPrice, changeRate, latestMa20);
+        StockDataResponseDto.PanicDefenseInfoDto panicDefense = buildPanicDefense(changeRate, kospiChangePercent, stockName);
+        StockDataResponseDto.FinalConclusionDto finalConclusion = buildFinalConclusion(currentPrice, changeRate, latestMa20);
 
         StockDataResponseDto response = StockDataResponseDto.builder()
-                .id(targetCode)
+                .id(code)
                 .name(stockName)
-                .code(targetCode)
+                .code(code)
                 .category("KOSPI 대형주")
                 .quote(StockDataResponseDto.StockQuoteDto.builder()
-                        .code(targetCode)
+                        .code(code)
                         .name(stockName)
-                        .englishName(stockName)
+                        .englishName(code)
                         .currentPrice(currentPrice)
                         .changePrice((int) Math.round(currentPrice * (changeRate / 100.0)))
                         .changeRate(changeRate)
@@ -223,185 +110,186 @@ public class StockAnalysisController {
                         .openPrice(currentPrice)
                         .highPrice((int) (currentPrice * 1.02))
                         .lowPrice((int) (currentPrice * 0.98))
-                        .prevClosePrice(currentPrice != 0
-                                ? (int) (currentPrice / (1 + (changeRate / 100.0))) : 0)
+                        .prevClosePrice((int) (currentPrice / (1 + (changeRate / 100.0))))
                         .foreignOwnership(32.5)
                         .per(11.2)
                         .pbr(1.05)
                         .build())
-                .sentimentScore(sentimentScore)
-                .sentimentStatus(sentimentScore >= 80 ? "매우 긍정" :
-                        (sentimentScore >= 70 ? "긍정" : "중립"))
+                .sentimentScore(78)
+                .sentimentStatus("긍정")
                 .sentimentBreakdown(StockDataResponseDto.SentimentBreakdownDto.builder()
-                        .positive(pos)
-                        .neutral(neu)
-                        .negative(neg)
+                        .positive(74)
+                        .neutral(18)
+                        .negative(8)
                         .build())
-                .metrics7d(metrics7d)
+                .metrics7d(List.of(
+                        StockDataResponseDto.DailyMetricDto.builder().day("11.03").fullDate("2026.11.03").sentimentScore(72).stockPrice((int)(currentPrice * 0.96)).kospiIndex(2550.2).build(),
+                        StockDataResponseDto.DailyMetricDto.builder().day("11.04").fullDate("2026.11.04").sentimentScore(68).stockPrice((int)(currentPrice * 0.97)).kospiIndex(2542.1).build(),
+                        StockDataResponseDto.DailyMetricDto.builder().day("11.05").fullDate("2026.11.05").sentimentScore(75).stockPrice((int)(currentPrice * 0.98)).kospiIndex(2548.5).build(),
+                        StockDataResponseDto.DailyMetricDto.builder().day("11.06").fullDate("2026.11.06").sentimentScore(80).stockPrice((int)(currentPrice * 1.01)).kospiIndex(2538.9).build(),
+                        StockDataResponseDto.DailyMetricDto.builder().day("11.07").fullDate("2026.11.07").sentimentScore(76).stockPrice((int)(currentPrice * 0.99)).kospiIndex(2541.0).build(),
+                        StockDataResponseDto.DailyMetricDto.builder().day("11.08").fullDate("2026.11.08").sentimentScore(74).stockPrice((int)(currentPrice * 0.995)).kospiIndex(2535.4).build(),
+                        StockDataResponseDto.DailyMetricDto.builder().day("11.09").fullDate("2026.11.09").sentimentScore(78).stockPrice(currentPrice).kospiIndex(kospiIndex).build()
+                ))
                 .yearlyChartData(yearlyChartData)
                 .panicDefense(panicDefense)
-                .newsSummary3Lines(newsList)
+                .newsSummary3Lines(buildMockNewsList())
                 .finalConclusion(finalConclusion)
                 .build();
 
         return ResponseEntity.ok(response);
     }
 
-    // ==========================================
-    // 최근 7거래일 실제 주가 및 코스피 데이터 구성
-    // ==========================================
+    // 4. AI 감성 통계 API
+    @GetMapping({"/ai/sentiment-stats/{code}", "/stocks/{code}/sentiment-stats", "/sentiment/{code}"})
+    public ResponseEntity<?> getSentimentStats(@PathVariable String code) {
+        Map<String, Object> breakdown = new HashMap<>();
+        breakdown.put("positive", 74);
+        breakdown.put("neutral", 18);
+        breakdown.put("negative", 8);
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
-    private List<StockDataResponseDto.DailyMetricDto> buildMetrics7d(
-            List stockList,
-            List kospiList,
-            int fallbackPrice,
-            double fallbackKospi,
-            int baseSentiment) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("stockCode", code);
+        response.put("totalCount", 328);
+        response.put("sentimentScore", 78);
+        response.put("score", 78);
+        response.put("sentimentStatus", "긍정");
+        response.put("status", "긍정");
+        response.put("positiveRatio", 74);
+        response.put("neutralRatio", 18);
+        response.put("negativeRatio", 8);
+        response.put("sentimentBreakdown", breakdown);
+        response.put("breakdown", breakdown);
 
-        List<StockDataResponseDto.DailyMetricDto> result = new ArrayList<>();
-
-        if (stockList == null || stockList.isEmpty()) {
-            log.warn("KIS 일별 주가 데이터가 없습니다. 실제 주가 차트를 생성할 수 없습니다.");
-            return result;
-        }
-
-        try {
-            // 주가 데이터와 코스피 데이터를 독립적으로 처리
-            List<Map> stockItems = new ArrayList<>();
-            for (Object item : stockList) {
-                if (item instanceof Map) {
-                    stockItems.add((Map) item);
-                }
-            }
-
-            List<Map> kospiItems = new ArrayList<>();
-            if (kospiList != null) {
-                for (Object item : kospiList) {
-                    if (item instanceof Map) {
-                        kospiItems.add((Map) item);
-                    }
-                }
-            }
-
-            // KIS 응답은 최신 날짜부터 내려오므로 오래된 날짜부터 정렬
-            Collections.reverse(stockItems);
-            Collections.reverse(kospiItems);
-
-            // 코스피 데이터는 날짜를 기준으로 별도 매핑
-            Map<String, Double> kospiByDate = new HashMap<>();
-
-            for (Map kMap : kospiItems) {
-                String date = String.valueOf(kMap.get("stck_bsop_date"));
-                Object value = kMap.get("bstp_nmix_prpr");
-
-                if (value == null) value = kMap.get("bstp_nmix_clpr");
-                if (value == null) value = kMap.get("stck_clpr");
-
-                Double parsedValue = parseChartDouble(value);
-
-                if (date.length() == 8 && parsedValue != null) {
-                    kospiByDate.put(date, parsedValue);
-                }
-            }
-
-            // 실제 주가 데이터 중 유효한 거래일만 추출
-            List<Map> validStockItems = new ArrayList<>();
-
-            for (Map sMap : stockItems) {
-                String date = String.valueOf(sMap.get("stck_bsop_date"));
-                Integer closePrice = parseChartInteger(sMap.get("stck_clpr"));
-
-                if (date.length() == 8 && closePrice != null && closePrice > 0) {
-                    validStockItems.add(sMap);
-                }
-            }
-
-            int startIndex = Math.max(0, validStockItems.size() - 7);
-
-            for (int i = startIndex; i < validStockItems.size(); i++) {
-                Map sMap = validStockItems.get(i);
-
-                String rawDate = String.valueOf(sMap.get("stck_bsop_date"));
-                int stockPrice = parseChartInteger(sMap.get("stck_clpr"));
-
-                String dayLabel =
-                        rawDate.substring(4, 6) + "." + rawDate.substring(6, 8);
-
-                String fullDate =
-                        rawDate.substring(0, 4) + "." +
-                        rawDate.substring(4, 6) + "." +
-                        rawDate.substring(6, 8);
-
-                // 날짜가 일치하는 코스피 데이터만 사용
-                Double kospiValue = kospiByDate.get(rawDate);
-
-                // 코스피 데이터가 없어도 주가 데이터는 그대로 표시
-                double chartKospi = kospiValue != null
-                        ? kospiValue
-                        : fallbackKospi;
-
-                int dayOffset = i - startIndex;
-                int sentiment = Math.max(
-                        30,
-                        Math.min(100, baseSentiment + ((dayOffset - 3) * 2))
-                );
-
-                result.add(StockDataResponseDto.DailyMetricDto.builder()
-                        .day(dayLabel)
-                        .fullDate(fullDate)
-                        .sentimentScore(sentiment)
-                        .stockPrice(stockPrice)
-                        .kospiIndex(chartKospi)
-                        .build());
-            }
-
-            log.info("최근 7거래일 차트 생성 완료: 실제 주가 데이터 {}건, 코스피 데이터 {}건",
-                    result.size(), kospiByDate.size());
-
-        } catch (Exception e) {
-            log.error("실제 주가 차트 데이터 생성 실패: {}", e.getMessage(), e);
-            return Collections.emptyList();
-        }
-
-        return result;
+        return ResponseEntity.ok(response);
     }
 
-    private Integer parseChartInteger(Object value) {
-        try {
-            if (value == null) return null;
+    // 5. AI 뉴스 요약 리스트 API
+    @GetMapping({"/stocks/{code}/news", "/news/{code}"})
+    public ResponseEntity<?> getAiNewsSummary(
+            @PathVariable String code,
+            @RequestParam(defaultValue = "5") int limit) {
+        
+        var newsList = List.of(
+                Map.of(
+                        "id", 1,
+                        "title", "글로벌 신규 수주 확대 및 실적 개선 모멘텀",
+                        "press", "연합인포맥스",
+                        "source", "연합인포맥스",
+                        "publishedAt", "2026.11.11 13:20",
+                        "timeAgo", "1시간 전",
+                        "sentiment", "positive",
+                        "sentimentLabel", "호재",
+                        "summary", "주력 사업부문의 글로벌 공급망 확대에 힘입어 분기 실적 턴어라운드가 기대됩니다."
+                ),
+                Map.of(
+                        "id", 2,
+                        "title", "적극적 주주가치 제고 및 기관 순매수 유입",
+                        "press", "한국경제",
+                        "source", "한국경제",
+                        "publishedAt", "2026.11.11 11:40",
+                        "timeAgo", "3시간 전",
+                        "sentiment", "positive",
+                        "sentimentLabel", "호재",
+                        "summary", "자사주 정책 및 배당 확대 기대감으로 기관 수급이 하방 지지선을 강화하고 있습니다."
+                ),
+                Map.of(
+                        "id", 3,
+                        "title", "매크로 지수 변동성에 따른 외국인 수급 숨고르기",
+                        "press", "매일경제",
+                        "source", "매일경제",
+                        "publishedAt", "2026.11.11 09:15",
+                        "timeAgo", "5시간 전",
+                        "sentiment", "neutral",
+                        "sentimentLabel", "이슈",
+                        "summary", "시장 전반의 금리 및 환율 변동성으로 외국인 수급이 단기 관망세를 나타내고 있습니다."
+                )
+        );
 
-            String number = value.toString()
-                    .replace(",", "")
-                    .trim();
+        Map<String, Object> response = new HashMap<>();
+        response.put("stockCode", code);
+        response.put("news", newsList);
+        response.put("newsList", newsList);
+        response.put("items", newsList);
 
-            if (number.isEmpty()) return null;
-
-            return Integer.parseInt(number);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        return ResponseEntity.ok(response);
     }
 
-    private Double parseChartDouble(Object value) {
-        try {
-            if (value == null) return null;
+    // 6. AI 최종 결론 API
+    @GetMapping({"/ai/final-conclusion/{code}", "/stocks/{code}/final-conclusion", "/conclusion/{code}"})
+    public ResponseEntity<?> getAiFinalConclusion(@PathVariable String code) {
+        String stockName = resolveStockName(code);
+        Stock stock = kisService.fetchAndSyncCurrentPrice(code);
+        int currentPrice = (stock != null && stock.getCurrentPrice() != null) ? stock.getCurrentPrice() : 0;
+        double changeRate = (stock != null && stock.getChangeRate() != null) ? stock.getChangeRate().doubleValue() : 0.0;
 
-            String number = value.toString()
-                    .replace(",", "")
-                    .trim();
+        Map<String, Object> kospiData = kisService.fetchKospiIndex();
+        double kospiChange = (double) kospiData.getOrDefault("changeRate", -1.15);
 
-            if (number.isEmpty()) return null;
+        Map<String, Object> marketComparison = new HashMap<>();
+        marketComparison.put("startDate", "2026.11.03");
+        marketComparison.put("endDate", "2026.11.10");
+        marketComparison.put("stockReturn", changeRate);
+        marketComparison.put("kospiReturn", kospiChange);
+        marketComparison.put("relativeReturn", Math.round((changeRate - kospiChange) * 100.0) / 100.0);
 
-            return Double.parseDouble(number);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        Map<String, Object> response = new HashMap<>();
+        response.put("stockCode", code);
+        response.put("stockName", stockName);
+        response.put("badge", changeRate > 0 ? "분할 매수 추천" : "관망 추천");
+        response.put("conclusionBadge", changeRate > 0 ? "분할 매수 추천" : "관망 추천");
+        response.put("guidance", String.format("%s 종목은 기술적 지표 및 기관 수급 유입에 힘입어 안정적인 흐름을 유지하고 있습니다.", stockName));
+        response.put("keyFactors", List.of("20일 이동평균선 상회 유지", "글로벌 신규 공급 계약 모멘텀"));
+        response.put("riskFactors", List.of("거시 경제 환율 변동성", "외국인 단기 차익 실현 매물"));
+        response.put("psychologicalTip", "시장 급락 시 3일 이내 충동 매도를 지양하고 분할 매수로 대응하세요.");
+        response.put("newsCount", 12);
+        response.put("marketComparison", marketComparison);
+
+        return ResponseEntity.ok(response);
     }
 
-    private StockDataResponseDto.PanicDefenseInfoDto buildPanicDefense(
-            double stockChange, double kospiChange, String stockName) {
+    private String resolveStockName(String code) {
+        for (StockTarget target : StockTarget.values()) {
+            if (target.getCode().equals(code)) {
+                return target.getName();
+            }
+        }
+        return "선택 종목";
+    }
 
+    private List<StockDataResponseDto.NewsItemDto> buildMockNewsList() {
+        return List.of(
+                StockDataResponseDto.NewsItemDto.builder()
+                        .id("1")
+                        .title("글로벌 신규 수주 확대 및 실적 개선 모멘텀")
+                        .source("연합인포맥스")
+                        .timeAgo("1시간 전")
+                        .sentiment("positive")
+                        .sentimentLabel("호재")
+                        .summary("주력 사업부문의 글로벌 공급망 확대에 힘입어 분기 실적 턴어라운드가 기대됩니다.")
+                        .build(),
+                StockDataResponseDto.NewsItemDto.builder()
+                        .id("2")
+                        .title("적극적 주주가치 제고 및 기관 순매수 유입")
+                        .source("한국경제")
+                        .timeAgo("3시간 전")
+                        .sentiment("positive")
+                        .sentimentLabel("호재")
+                        .summary("자사주 정책 및 배당 확대 기대감으로 기관 수급이 하방 지지선을 강화하고 있습니다.")
+                        .build(),
+                StockDataResponseDto.NewsItemDto.builder()
+                        .id("3")
+                        .title("매크로 지수 변동성에 따른 수급 숨고르기")
+                        .source("매일경제")
+                        .timeAgo("5시간 전")
+                        .sentiment("neutral")
+                        .sentimentLabel("이슈")
+                        .summary("시장 전반의 금리 및 환율 변동성으로 외국인 수급이 단기 관망세를 나타내고 있습니다.")
+                        .build()
+        );
+    }
+
+    private StockDataResponseDto.PanicDefenseInfoDto buildPanicDefense(double stockChange, double kospiChange, String stockName) {
         double relativePerformance = Math.round((stockChange - kospiChange) * 100.0) / 100.0;
         String defenseType;
         String badgeText;
@@ -411,14 +299,12 @@ public class StockAnalysisController {
         if (kospiChange < -0.8 && relativePerformance > 1.0) {
             defenseType = "firm_divergence";
             badgeText = "패닉 디펜스 발동";
-            headline = String.format("코스피(%.2f%%) 대비 %s 상대 수익률 +%.2f%%p로 하방 방어 우수",
-                    kospiChange, stockName, relativePerformance);
+            headline = String.format("코스피(%.2f%%) 대비 %s 상대 수익률 +%.2f%%p로 하방 방어 우수", kospiChange, stockName, relativePerformance);
             recommendation = "지수 급락에 따른 시장 패닉 심리에 동요하지 마시고, 견조한 지지력을 바탕으로 보유 포지션 유지를 권장합니다.";
         } else if (stockChange >= 2.0) {
             defenseType = "bullish_rally";
             badgeText = "AI 안심 방어 가이드";
-            headline = String.format("%s 주도 수급 유입으로 지수 대비 +%.2f%%p 초과 상승",
-                    stockName, relativePerformance);
+            headline = String.format("%s 주도 수급 유입으로 지수 대비 +%.2f%%p 초과 상승", stockName, relativePerformance);
             recommendation = "상승 탄력이 견조하게 유지되고 있습니다. 고점 추격 매수보다는 1차 눌림목에서의 분할 진입이 유리합니다.";
         } else if (stockChange < -2.0 && relativePerformance < -1.0) {
             defenseType = "market_drop";
@@ -443,9 +329,7 @@ public class StockAnalysisController {
                 .build();
     }
 
-    private StockDataResponseDto.FinalConclusionDto buildFinalConclusion(
-            int currentPrice, double changeRate, double ma20) {
-
+    private StockDataResponseDto.FinalConclusionDto buildFinalConclusion(int currentPrice, double changeRate, double ma20) {
         String badge;
         String guidance;
         int support = (int) (currentPrice * 0.96);
@@ -453,14 +337,10 @@ public class StockAnalysisController {
 
         if (currentPrice > ma20 && changeRate > 0) {
             badge = "분할 매수 추천";
-            guidance = String.format(
-                    "20일선(%,d원) 위에 안착하여 단기 상승 추세가 살아있습니다. 눌림목 형성 시 분할 매수로 대응하세요.",
-                    (int) ma20);
+            guidance = String.format("20일선(%,d원) 위에 안착하여 단기 상승 추세가 살아있습니다. 눌림목 형성 시 분할 매수로 대응하세요.", (int) ma20);
         } else if (currentPrice < ma20) {
             badge = "관망 추천";
-            guidance = String.format(
-                    "20일선(%,d원)을 하회하고 있으므로 무리한 진입보다는 1차 지지선(%,d원) 안착을 먼저 확인하세요.",
-                    (int) ma20, support);
+            guidance = String.format("20일선(%,d원)을 하회하고 있으므로 무리한 진입보다는 1차 지지선(%,d원) 안착을 먼저 확인하세요.", (int) ma20, support);
         } else {
             badge = "리스크 관리";
             guidance = "박스권 횡보 구간입니다. 지지선 이탈 시 손절 기준을 엄격히 준수하고 비중 조절에 유의하세요.";
@@ -489,16 +369,14 @@ public class StockAnalysisController {
         for (Object item : reversedList) {
             if (item instanceof Map) {
                 Map map = (Map) item;
-
                 try {
                     String rawDate = String.valueOf(map.get("stck_bsop_date"));
-                    String formattedDate = rawDate.length() >= 8
-                            ? rawDate.substring(0, 4) + "." + rawDate.substring(4, 6) : rawDate;
-                    String label = rawDate.length() >= 8
-                            ? "'" + rawDate.substring(2, 4) + "." + rawDate.substring(4, 6) : rawDate;
+                    String formattedDate = rawDate.length() >= 8 ?
+                            rawDate.substring(0, 4) + "." + rawDate.substring(4, 6) : rawDate;
+                    String label = rawDate.length() >= 8 ?
+                            "'" + rawDate.substring(2, 4) + "." + rawDate.substring(4, 6) : rawDate;
 
-                    int close = Integer.parseInt(
-                            String.valueOf(map.get("stck_clpr")).replaceAll("[^0-9]", ""));
+                    int close = Integer.parseInt(String.valueOf(map.get("stck_clpr")).replaceAll("[^0-9]", ""));
                     closePrices.add(close);
 
                     double ma20 = calculateMA(closePrices, 20);
@@ -519,7 +397,6 @@ public class StockAnalysisController {
                 }
             }
         }
-
         return result;
     }
 
@@ -527,12 +404,10 @@ public class StockAnalysisController {
         if (prices.size() < period) {
             return prices.stream().mapToInt(Integer::intValue).average().orElse(0.0);
         }
-
         int sum = 0;
         for (int i = prices.size() - period; i < prices.size(); i++) {
             sum += prices.get(i);
         }
-
         return Math.round((double) sum / period * 100.0) / 100.0;
     }
 }

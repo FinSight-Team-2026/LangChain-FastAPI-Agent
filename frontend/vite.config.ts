@@ -21,7 +21,7 @@ export default defineConfig(() => {
       proxy: {
         // Gemini AI 분석 API → FastAPI
         '/api/ai': {
-          target: 'http://127.0.0.1:8001',
+          target: 'http://localhost:8080',
           changeOrigin: true,
         },
 
