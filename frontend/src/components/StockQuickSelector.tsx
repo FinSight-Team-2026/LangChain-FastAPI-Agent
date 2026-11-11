@@ -18,15 +18,10 @@ export const StockQuickSelector: React.FC<StockQuickSelectorProps> = ({
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
           <span>주요 분석 종목 퀵 셀렉터</span>
-<<<<<<< HEAD
-          <span className="text-slate-600 font-normal">· 5대 핵심주</span>
-        </h2>
-=======
         </h2>
         <span className="text-[11px] text-slate-600 hidden sm:inline">
           종목을 선택하면 7일 감성 지수와 패닉 디펜스 지표가 자동 갱신됩니다
         </span>
->>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-200">
@@ -100,8 +95,4 @@ export const StockQuickSelector: React.FC<StockQuickSelectorProps> = ({
       </div>
     </div>
   );
-<<<<<<< HEAD
 };
-=======
-};
->>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
