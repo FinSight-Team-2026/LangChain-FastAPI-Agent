@@ -1,5 +1,6 @@
 package com.moodon.backend;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -37,6 +38,6 @@ public class SentimentController {
     public ResponseEntity<List<NewsSentimentProjection>> getNewsSummaries(
             @PathVariable("stockCode") String stockCode,
             @RequestParam(name = "limit", defaultValue = "10") int limit) {
-        return ResponseEntity.ok(newsSentimentRepo.findAnalyzedNews(stockCode, limit));
+        return ResponseEntity.ok(newsSentimentRepo.findAnalyzedNews(stockCode, PageRequest.of(0, limit)));
     }
 }

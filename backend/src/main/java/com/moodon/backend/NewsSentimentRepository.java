@@ -1,5 +1,6 @@
 package com.moodon.backend;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -9,22 +10,23 @@ import java.util.List;
 @Repository
 public interface NewsSentimentRepository extends JpaRepository<NewsArticle, Long> {
 
-    // LIMIT 에러를 원천 방지하기 위해 Pageable을 사용하는 방법 또는 JPQL 활용
-    @Query("""
-        SELECT new com.moodon.backend.NewsSentimentDto(
-            a.articleId, 
-            a.title, 
-            a.url, 
-            a.publishedAt, 
-            s.label, 
-            s.score, 
-            s.summary
-        )
-        FROM NewsArticle a
-        JOIN NewsSentiment s ON a.articleId = s.articleId
-        WHERE a.stockCode = :stockCode
-          AND (a.isStockRelevant = 1 OR a.isStockRelevant IS NULL)
-        ORDER BY a.publishedAt DESC
-    """)
-    List<NewsSentimentDto> findAnalyzedNews(@Param("stockCode") String stockCode);
+    @Query(value = """
+        SELECT 
+            a.article_id AS articleId,
+            a.title AS title,
+            a.url AS url,
+            a.published_at AS publishedAt,
+            s.label AS label,
+            s.score AS score,
+            s.summary AS summary
+        FROM news_articles a
+        INNER JOIN news_sentiments s ON a.article_id = s.article_id
+        WHERE a.stock_code = :stockCode
+          AND (a.is_stock_relevant = 1 OR a.is_stock_relevant IS NULL)
+        ORDER BY a.published_at DESC
+    """, nativeQuery = true)
+    List<NewsSentimentProjection> findAnalyzedNews(
+            @Param("stockCode") String stockCode, 
+            Pageable pageable
+    );
 }
