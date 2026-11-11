@@ -17,6 +17,7 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "user_id")
     private Long id; // 회원 고유 번호 (PK)
 
     @Column(nullable = false, unique = true)
@@ -26,4 +27,6 @@ public class User {
     private String password; // 비밀번호
 
     private String nickname; // 닉네임
+
+    private String email; // 이메일
 }

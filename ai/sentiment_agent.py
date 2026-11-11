@@ -1,5 +1,9 @@
 """기존 LangChain Gemini 모델을 사용해 관련성 + 감성 + 3문장 요약을 한 번에 분석."""
 import json
+import random
+import re
+import threading
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -46,6 +50,84 @@ def extract_text(response):
         return response.content
     return ''.join(block.get('text', '') for block in response.content if isinstance(block, dict) and block.get('type') == 'text')
 
+
+# Gemini 요청 간 최소 간격
+MIN_REQUEST_INTERVAL = 6.0
+
+# 429 발생 시 최대 재시도 횟수
+MAX_RATE_LIMIT_RETRIES = 3
+
+_request_lock = threading.Lock()
+_last_request_time = 0.0
+
+
+def _wait_for_request_slot():
+    global _last_request_time
+
+    elapsed = time.monotonic() - _last_request_time
+    remaining = MIN_REQUEST_INTERVAL - elapsed
+
+    if remaining > 0:
+        time.sleep(remaining)
+
+    _last_request_time = time.monotonic()
+
+
+def _is_rate_limit_error(exc):
+    message = str(exc).lower()
+    return (
+        "429" in message
+        or "resource_exhausted" in message
+        or "quota exceeded" in message
+    )
+
+
+def _get_retry_delay(exc, attempt):
+    message = str(exc)
+
+    match = re.search(
+        r"retry in\s+([\d.]+)\s*s",
+        message,
+        re.IGNORECASE
+    )
+
+    if match:
+        return float(match.group(1)) + 2
+
+    return min(60, 10 * (2 ** attempt)) + random.uniform(0, 2)
+
+
 def analyze_news(stock_name, title, content):
-    response = chain.invoke({'stock_name': stock_name, 'title': title, 'content': content or ''})
-    return parse_result(extract_text(response).strip())
+    # 동일 프로세스의 Gemini 뉴스 분석 요청을 순차 처리
+    with _request_lock:
+        for attempt in range(MAX_RATE_LIMIT_RETRIES + 1):
+            _wait_for_request_slot()
+
+            try:
+                response = chain.invoke({
+                    "stock_name": stock_name,
+                    "title": title,
+                    "content": content or ""
+                })
+
+                return parse_result(
+                    extract_text(response).strip()
+                )
+
+            except Exception as exc:
+                if not _is_rate_limit_error(exc):
+                    raise
+
+                if attempt >= MAX_RATE_LIMIT_RETRIES:
+                    raise
+
+                delay = _get_retry_delay(exc, attempt)
+
+                print(
+                    f"[RATE LIMIT] Gemini 요청 제한. "
+                    f"{delay:.1f}초 후 재시도 "
+                    f"({attempt + 1}/{MAX_RATE_LIMIT_RETRIES})"
+                )
+
+                time.sleep(delay)
+

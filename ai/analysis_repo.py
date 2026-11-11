@@ -63,3 +63,35 @@ def save_done(article_id, label, score, summary):
     finally:
         cursor.close()
         conn.close()
+
+def get_recent_news_summaries(stock_code, limit=5):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT
+                a.article_id,
+                a.stock_code,
+                a.title,
+                a.url,
+                a.published_at,
+                s.label AS sentiment,
+                s.score,
+                s.summary
+            FROM news_articles a
+            JOIN news_sentiments s
+                ON a.article_id = s.article_id
+            WHERE a.stock_code = %s
+              AND a.analysis_status = 'DONE'
+              AND a.published_at >= NOW() - INTERVAL 7 DAY
+              AND a.published_at <= NOW()
+            ORDER BY a.published_at DESC, a.article_id DESC
+            LIMIT %s
+        """, (stock_code, int(limit)))
+
+        return cursor.fetchall()
+
+    finally:
+        cursor.close()
+        conn.close()

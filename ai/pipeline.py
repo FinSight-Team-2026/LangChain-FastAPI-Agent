@@ -9,7 +9,7 @@ def run_pipeline(stock_code, stock_name):
     print(f"\n[START] {stock_name} 뉴스 분석 시작")
 
     # 1. 뉴스 수집 및 저장
-    save_news(stock_code, stock_name, display=5)
+    save_news(stock_code, stock_name, display=20)
 
     # 2. 미분석 뉴스 전체 분석
     while True:
