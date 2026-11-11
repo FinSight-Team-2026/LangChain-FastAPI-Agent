@@ -19,8 +19,15 @@ export default defineConfig(() => {
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
       // 🌟 여기에 백엔드(스프링 부트 8080포트)로 연결해주는 프록시 설정만 살짝 추가했습니다!
       proxy: {
+        // Gemini AI 분석 API → FastAPI
+        '/api/ai': {
+          target: 'http://127.0.0.1:8001',
+          changeOrigin: true,
+        },
+
+        // 나머지 API → Spring Boot 
         '/api': {
-          target: 'http://localhost:8080',
+          target: 'http://127.0.0.1:8080',
           changeOrigin: true,
         },
       },

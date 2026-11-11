@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React from 'react';
 import { Stock } from '../types/stock';
 import { ShieldCheck, Sparkles } from 'lucide-react';
@@ -8,6 +9,66 @@ interface SentimentGaugeCardProps {
 
 export const SentimentGaugeCard: React.FC<SentimentGaugeCardProps> = ({ stock }) => {
   const score = stock.sentimentScore;
+=======
+import React, { useEffect, useState } from 'react';
+import { StockData } from '../types/stock';
+import { Sparkles } from 'lucide-react';
+
+interface SentimentStatsResponse {
+  stockCode: string;
+  totalCount: number;
+  sentimentScore: number | null;
+  sentimentStatus: string;
+  sentimentBreakdown: {
+    positive: number;
+    neutral: number;
+    negative: number;
+  };
+}
+
+interface SentimentGaugeCardProps {
+  stock: StockData;
+}
+
+export const SentimentGaugeCard: React.FC<SentimentGaugeCardProps> = ({ stock }) => {
+  const [stats, setStats] = useState<SentimentStatsResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [statsError, setStatsError] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setStats(null);
+    setLoading(true);
+    setStatsError(false);
+
+    fetch(`/api/ai/sentiment-stats/${encodeURIComponent(stock.code)}`, {
+      signal: controller.signal,
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json() as Promise<SentimentStatsResponse>;
+      })
+      .then((data) => {
+        if (!controller.signal.aborted) setStats(data);
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          console.error('감성 통계 조회 실패:', error);
+          setStatsError(true);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [stock.code]);
+
+  const hasData = !loading && !statsError && stats !== null && stats.totalCount > 0 && stats.sentimentScore !== null;
+  const score = hasData ? stats.sentimentScore! : 0;
+  const breakdown = hasData ? stats.sentimentBreakdown : { positive: 0, neutral: 0, negative: 0 };
+  const status = loading ? '분석 결과 불러오는 중' : statsError ? '조회 실패' : hasData ? stats.sentimentStatus : '분석 데이터 없음';
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
 
   // Circular gauge calculations
   const radius = 62;
@@ -24,20 +85,34 @@ export const SentimentGaugeCard: React.FC<SentimentGaugeCardProps> = ({ stock })
   };
 
   return (
+<<<<<<< HEAD
     <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs flex flex-col justify-between h-full">
       
       {/* Header (패닉 시뮬레이터 버튼 완전 삭제됨) */}
+=======
+    <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs flex flex-col h-full">
+      
+      {/* Header */}
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
         <div className="flex items-center gap-2">
           <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-blue-600" />
+<<<<<<< HEAD
             <span>AI 뉴스 감성 분석 & 패닉 디펜스</span>
+=======
+            <span>AI 뉴스 감성 분석</span>
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
           </h3>
         </div>
       </div>
 
       {/* Main Gauge & Sentiment Section */}
+<<<<<<< HEAD
       <div className="py-4 flex flex-col sm:flex-row items-center justify-around gap-6">
+=======
+      <div className="pt-6 pb-4 flex flex-col items-center gap-7">
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
         
         {/* Circular SVG Gauge */}
         <div className="relative flex items-center justify-center">
@@ -56,7 +131,11 @@ export const SentimentGaugeCard: React.FC<SentimentGaugeCardProps> = ({ stock })
               cx="72"
               cy="72"
               r={radius}
+<<<<<<< HEAD
               stroke={getGaugeColor(score)}
+=======
+              stroke={hasData ? getGaugeColor(score) : "#CBD5E1"}
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
               strokeWidth="12"
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
@@ -69,34 +148,57 @@ export const SentimentGaugeCard: React.FC<SentimentGaugeCardProps> = ({ stock })
           {/* Centered Score Label */}
           <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
             <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight tabular-nums">
+<<<<<<< HEAD
               {score}점
+=======
+              {hasData ? `${score}점` : '—'}
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
             </span>
             <span
               className={`text-xs font-bold mt-0.5 ${
                 score >= 70 ? 'text-blue-600' : score >= 50 ? 'text-slate-600' : 'text-amber-600'
               }`}
             >
+<<<<<<< HEAD
               {stock.sentimentStatus}
+=======
+              {status}
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
             </span>
           </div>
         </div>
 
         {/* Sentiment Breakdown bars */}
+<<<<<<< HEAD
         <div className="flex-1 w-full max-w-xs space-y-2.5">
           <div className="text-xs font-bold text-slate-700 flex items-center justify-between">
             <span>실시간 뉴스 감성 비율</span>
             <span className="text-slate-600 font-normal">최근 24시간 언론 기사 328건 분석</span>
+=======
+        <div className="w-full space-y-3">
+          <div className="text-xs font-bold text-slate-700 flex items-center justify-between">
+            <span>최근 7일 뉴스 감성 비율</span>
+            <span className="text-slate-600 font-normal">{loading ? '불러오는 중...' : statsError ? '조회 실패' : `분석 완료 뉴스 ${stats?.totalCount ?? 0}건`}</span>
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
           </div>
 
           <div>
             <div className="flex justify-between text-xs text-slate-600 mb-1">
               <span className="text-blue-600 font-semibold">긍정 뉴스</span>
+<<<<<<< HEAD
               <span className="font-bold tabular-nums text-blue-700">{stock.sentimentBreakdown.positive}%</span>
+=======
+              <span className="font-bold tabular-nums text-blue-700">{breakdown.positive}%</span>
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
             </div>
             <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-600 rounded-full transition-all duration-500"
+<<<<<<< HEAD
                 style={{ width: `${stock.sentimentBreakdown.positive}%` }}
+=======
+                style={{ width: `${breakdown.positive}%` }}
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
               />
             </div>
           </div>
@@ -104,12 +206,20 @@ export const SentimentGaugeCard: React.FC<SentimentGaugeCardProps> = ({ stock })
           <div>
             <div className="flex justify-between text-xs text-slate-600 mb-1">
               <span className="text-slate-600 font-medium">중립 / 사실 보도</span>
+<<<<<<< HEAD
               <span className="font-bold tabular-nums text-slate-700">{stock.sentimentBreakdown.neutral}%</span>
+=======
+              <span className="font-bold tabular-nums text-slate-700">{breakdown.neutral}%</span>
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
             </div>
             <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-slate-400 rounded-full transition-all duration-500"
+<<<<<<< HEAD
                 style={{ width: `${stock.sentimentBreakdown.neutral}%` }}
+=======
+                style={{ width: `${breakdown.neutral}%` }}
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
               />
             </div>
           </div>
@@ -117,12 +227,20 @@ export const SentimentGaugeCard: React.FC<SentimentGaugeCardProps> = ({ stock })
           <div>
             <div className="flex justify-between text-xs text-slate-600 mb-1">
               <span className="text-rose-600 font-medium">부정 / 우려</span>
+<<<<<<< HEAD
               <span className="font-bold tabular-nums text-rose-700">{stock.sentimentBreakdown.negative}%</span>
+=======
+              <span className="font-bold tabular-nums text-rose-700">{breakdown.negative}%</span>
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
             </div>
             <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
               <div
                 className="h-full bg-rose-500 rounded-full transition-all duration-500"
+<<<<<<< HEAD
                 style={{ width: `${stock.sentimentBreakdown.negative}%` }}
+=======
+                style={{ width: `${breakdown.negative}%` }}
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
               />
             </div>
           </div>
@@ -130,6 +248,7 @@ export const SentimentGaugeCard: React.FC<SentimentGaugeCardProps> = ({ stock })
 
       </div>
 
+<<<<<<< HEAD
       {/* Panic Defense Card (원리보기 및 중간 막대 | 제거, 쉬운 한글 표현 적용) */}
       <div className="mt-2 bg-gradient-to-r from-blue-50/90 via-indigo-50/60 to-white rounded-xl p-3.5 sm:p-4 border border-blue-200/90 relative shadow-2xs">
         
@@ -170,3 +289,9 @@ export const SentimentGaugeCard: React.FC<SentimentGaugeCardProps> = ({ stock })
     </div>
   );
 };
+=======
+
+    </div>
+  );
+};
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)

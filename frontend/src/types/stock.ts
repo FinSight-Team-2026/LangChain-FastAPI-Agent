@@ -5,6 +5,7 @@ export interface DailyMetric {
   stockPrice: number; // KRW
   kospiIndex: number; // Point (e.g. 2540.2)
 }
+<<<<<<< HEAD
 
 export interface NewsItem {
   id: string;
@@ -58,10 +59,70 @@ export interface YearlyCandlePoint {
   ma20?: number;
   ma60?: number;
 }
+=======
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
 
-export interface Stock {
+export interface NewsItem {
+  id: string;
+<<<<<<< HEAD
+  name: string;
+=======
+  title: string;
+  url?: string | null;
+  source: string;
+  timeAgo: string;
+  sentiment: 'positive' | 'neutral' | 'negative';
+  sentimentLabel: '호재' | '이슈' | '리스크';
+  summary: string;
+}
+
+export interface PanicDefenseInfo {
+  isActive: boolean;
+  stockChangePercent: number;
+  kospiChangePercent: number;
+  badgeText: string;
+  headline: string;
+  recommendation: string;
+  defenseType: 'market_drop' | 'firm_divergence' | 'bullish_rally' | 'market_rebound';
+}
+
+export interface StockQuote {
+  code: string;
+  name: string;
+  englishName: string;
+  currentPrice: number;
+  changePrice: number;
+  changeRate: number; // e.g. -2.13 or 1.77
+  high52w: number;
+  low52w: number;
+  volume: number; // 주
+  tradingValue: number; // 억원
+  marketCap: number; // 조원 or 억원
+  openPrice: number;
+  highPrice: number;
+  lowPrice: number;
+  prevClosePrice: number;
+  foreignOwnership: number; // %
+  per: number;
+  pbr: number;
+}
+
+export interface YearlyCandlePoint {
+  date: string; // e.g. "2025.12"
+  label: string; // e.g. "'25.12"
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  ma20?: number;
+  ma60?: number;
+}
+
+export interface StockData {
   id: string;
   name: string;
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
   code: string;
   category: string;
   quote: StockQuote;
@@ -82,6 +143,20 @@ export interface Stock {
     targetSupport: string;
     psychologicalTip: string;
   };
+<<<<<<< HEAD
+=======
+}
+
+export interface StockTerm {
+  id: string;
+  term: string;
+  englishTerm: string;
+  category: string;
+  shortDesc: string;
+  detailedDesc: string;
+  beginnerTip: string;
+  exampleScenario: string;
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
 }
 
 export interface StockTerm {

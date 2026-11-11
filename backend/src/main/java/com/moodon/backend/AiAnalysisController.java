@@ -91,4 +91,34 @@ public class AiAnalysisController {
                     ));
         }
     }
+    // 5. 종목별 최신 뉴스 3줄 요약 조회
+    @GetMapping("/news-summary/{stockCode}")
+    public ResponseEntity<?> getNewsSummary(
+            @PathVariable String stockCode,
+            @RequestParam(defaultValue = "5") int limit) {
+
+        if (limit < 1 || limit > 20) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "limit은 1~20 사이여야 합니다."));
+        }
+
+        try {
+            Map<?, ?> response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/ai/news-summary/{stockCode}")
+                            .queryParam("limit", limit)
+                            .build(stockCode))
+                    .retrieve()
+                    .body(Map.class);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(Map.of(
+                            "error", "뉴스 요약 조회 실패",
+                            "detail", e.getMessage()
+                    ));
+        }
+    }
 }

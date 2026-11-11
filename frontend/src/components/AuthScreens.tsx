@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
+<<<<<<< HEAD
 import { TrendingUp, Mail, Lock, User, ArrowRight } from 'lucide-react';
+=======
+import { TrendingUp, Mail, Lock, User, ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
 
 interface AuthScreenProps {
   mode: 'login' | 'signup';
@@ -12,9 +16,15 @@ export const AuthScreens: React.FC<AuthScreenProps> = ({
   onSwitchMode,
   onSuccess,
 }) => {
+<<<<<<< HEAD
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+=======
+  const [email, setEmail] = useState('lsy6260@gmail.com');
+  const [password, setPassword] = useState('••••••••');
+  const [name, setName] = useState('현지');
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
   const [experience, setExperience] = useState('1년 미만 (초보 투자자)');
   const [agreed, setAgreed] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -61,8 +71,12 @@ export const AuthScreens: React.FC<AuthScreenProps> = ({
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+<<<<<<< HEAD
                   placeholder="이름을 입력하세요"
                   autoComplete="off"
+=======
+                  placeholder="현지"
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
                   className="w-full text-xs pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-blue-600 focus:border-blue-600 transition-colors"
                 />
               </div>
@@ -80,8 +94,12 @@ export const AuthScreens: React.FC<AuthScreenProps> = ({
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+<<<<<<< HEAD
                 placeholder="investor@example.com"
                 autoComplete="off"
+=======
+                placeholder="lsy6260@gmail.com"
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
                 className="w-full text-xs pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-blue-600 focus:border-blue-600 transition-colors"
               />
             </div>
@@ -109,7 +127,10 @@ export const AuthScreens: React.FC<AuthScreenProps> = ({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="비밀번호 입력"
+<<<<<<< HEAD
                 autoComplete="new-password"
+=======
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
                 className="w-full text-xs pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-blue-600 focus:border-blue-600 transition-colors"
               />
             </div>
@@ -175,6 +196,34 @@ export const AuthScreens: React.FC<AuthScreenProps> = ({
           </button>
         </form>
 
+<<<<<<< HEAD
+=======
+        {/* Social Login Dividers */}
+        <div className="mt-5 pt-4 border-t border-slate-100">
+          <div className="text-center text-[11px] text-slate-600 mb-3">
+            간편 소셜 로그인
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={onSuccess}
+              className="w-full py-2 px-3 bg-[#FEE500] hover:bg-[#FADA0A] text-slate-900 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <span className="text-xs font-black">💬</span>
+              <span>카카오 로그인</span>
+            </button>
+
+            <button
+              onClick={onSuccess}
+              className="w-full py-2 px-3 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <span className="font-bold text-blue-600">G</span>
+              <span>Google 계정</span>
+            </button>
+          </div>
+        </div>
+
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
         {/* Mode Switcher */}
         <div className="mt-6 text-center text-xs text-slate-600">
           {mode === 'login' ? (
@@ -205,4 +254,8 @@ export const AuthScreens: React.FC<AuthScreenProps> = ({
       </div>
     </div>
   );
+<<<<<<< HEAD
 };
+=======
+};
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)

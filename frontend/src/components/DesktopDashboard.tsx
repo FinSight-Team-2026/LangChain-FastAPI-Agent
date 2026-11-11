@@ -39,12 +39,21 @@ export const DesktopDashboard: React.FC<DesktopDashboardProps> = ({
         />
       </div>
 
+<<<<<<< HEAD
       {/* 5. AI 뉴스 감성 분석 & 패닉 디펜스 + 뉴스 세 줄 요약 (나란히 동일 높이 정렬) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
         <div className="h-full">
           <SentimentGaugeCard stock={selectedStock} />
         </div>
         <div className="h-full">
+=======
+      {/* 5. AI 감성 분석 (5/12) + 최근 7일 뉴스 요약 (7/12) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="lg:col-span-5">
+          <SentimentGaugeCard stock={selectedStock} />
+        </div>
+        <div className="lg:col-span-7">
+>>>>>>> 32d06f6 (feat: AI 분석 파이프라인 및 주식 용어 기능 통합)
           <NewsThreeLineSummary stock={selectedStock} />
         </div>
       </div>
