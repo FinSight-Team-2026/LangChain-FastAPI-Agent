@@ -100,7 +100,9 @@ export const WatchlistSection: React.FC<WatchlistSectionProps> = ({
         /* Grid of Watchlist Cards */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {watchedStocks.map((stock) => {
+            const quote = stock.quote ?? {};
             const sentimentMeta = getSentimentMeta(stock.sentimentScore);
+            const latestNews = stock.news ?? stock.newsSummary3Lines ?? [];
 
             return (
               <div
@@ -118,10 +120,10 @@ export const WatchlistSection: React.FC<WatchlistSectionProps> = ({
                         </span>
                         <span className="text-xs text-slate-400 num-font">{stock.code}</span>
                         <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-500">
-                          {stock.market}
+                          {stock.market ?? 'KOSPI'}
                         </span>
                       </div>
-                      <div className="text-xs text-slate-400 mt-0.5">{stock.sector}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">{stock.sector ?? '종목'}</div>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -140,10 +142,10 @@ export const WatchlistSection: React.FC<WatchlistSectionProps> = ({
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                     <div>
                       <div className="text-xl font-bold text-slate-900 num-font">
-                        {formatPrice(stock.price)}
+                        {formatPrice(Number(stock.price ?? quote.currentPrice ?? 0))}
                       </div>
-                      <div className={`text-xs font-semibold num-font ${getPriceColorClass(stock.changeRate)}`}>
-                        {formatChangeRate(stock.changeRate)}
+                      <div className={`text-xs font-semibold num-font ${getPriceColorClass(Number(stock.changeRate ?? quote.changeRate ?? 0))}`}>
+                        {formatChangeRate(Number(stock.changeRate ?? quote.changeRate ?? 0))}
                       </div>
                     </div>
 
@@ -189,7 +191,7 @@ export const WatchlistSection: React.FC<WatchlistSectionProps> = ({
                   </div>
 
                   {/* Latest News Article & Summary */}
-                  {stock.news.length > 0 && (
+                  {latestNews.length > 0 && (
                     <div className="mt-3.5 bg-slate-50/90 rounded-xl p-3.5 border border-slate-100 space-y-2">
                       <div className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-1.5 font-bold text-slate-800">
@@ -197,31 +199,31 @@ export const WatchlistSection: React.FC<WatchlistSectionProps> = ({
                           <span>최신 기사 요약</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                          <span className="font-semibold text-slate-600">{stock.news[0].source}</span>
+                          <span className="font-semibold text-slate-600">{latestNews[0].source}</span>
                           <span>·</span>
-                          <span>{stock.news[0].publishedAt}</span>
+                          <span>{latestNews[0].publishedAt ?? latestNews[0].timeAgo}</span>
                           <span
                             className={`px-1.5 py-0.2 rounded font-bold num-font ${
-                              stock.news[0].sentiment === 'positive'
+                              latestNews[0].sentiment === 'positive'
                                 ? 'bg-red-50 text-[#F04452]'
-                                : stock.news[0].sentiment === 'negative'
+                                : latestNews[0].sentiment === 'negative'
                                 ? 'bg-blue-50 text-[#3182F6]'
                                 : 'bg-slate-100 text-slate-600'
                             }`}
                           >
-                            {stock.news[0].sentiment === 'positive' ? '호재' : stock.news[0].sentiment === 'negative' ? '악재' : '중립'} {stock.news[0].sentimentScore}점
+                            {latestNews[0].sentiment === 'positive' ? '호재' : latestNews[0].sentiment === 'negative' ? '악재' : '중립'} {latestNews[0].sentimentScore ?? stock.sentimentScore}점
                           </span>
                         </div>
                       </div>
 
                       {/* Article Title */}
                       <div className="text-xs font-bold text-slate-900 line-clamp-1 group-hover:text-blue-600 transition-colors">
-                        {stock.news[0].title}
+                        {latestNews[0].title}
                       </div>
 
                       {/* Article Summary Snippet */}
                       <p className="text-xs text-slate-600 leading-relaxed bg-white/80 p-2.5 rounded-lg border border-slate-100">
-                        {stock.news[0].snippet}
+                        {latestNews[0].snippet ?? latestNews[0].summary}
                       </p>
 
                       {/* AI Sentiment Reason */}
@@ -229,7 +231,7 @@ export const WatchlistSection: React.FC<WatchlistSectionProps> = ({
                         <Sparkles className="w-3.5 h-3.5 text-blue-500 shrink-0 mt-0.5" />
                         <div>
                           <span className="font-semibold text-slate-700">AI 요약 분석: </span>
-                          <span>{stock.news[0].sentimentReason}</span>
+                          <span>{latestNews[0].sentimentReason ?? latestNews[0].summary}</span>
                         </div>
                       </div>
                     </div>
@@ -241,7 +243,7 @@ export const WatchlistSection: React.FC<WatchlistSectionProps> = ({
                       <span>핵심 모멘텀</span>
                     </div>
                     <ul className="text-xs text-slate-600 space-y-1">
-                      {stock.sentimentSummary.slice(0, 2).map((summary, idx) => (
+                      {(stock.sentimentSummary ?? []).slice(0, 2).map((summary, idx) => (
                         <li key={idx} className="flex items-start gap-1.5">
                           <span className="text-blue-500 font-bold shrink-0">·</span>
                           <span className="line-clamp-1">{summary}</span>
@@ -254,7 +256,7 @@ export const WatchlistSection: React.FC<WatchlistSectionProps> = ({
                 {/* Footer Action */}
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-blue-600 font-semibold group-hover:text-blue-700">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    {stock.keyDrivers.slice(0, 2).map((tag, idx) => (
+                    {(stock.keyDrivers ?? []).slice(0, 2).map((tag, idx) => (
                       <span key={idx} className="text-[11px] text-slate-500 font-medium bg-slate-100 px-2 py-0.5 rounded-md">
                         #{tag}
                       </span>

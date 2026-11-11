@@ -29,10 +29,13 @@ export const StockQuickSelector: React.FC<StockQuickSelectorProps> = ({
 
       <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-200">
         {stockList.map((stock) => {
-          if (!stock || !stock.quote) return null;
-          
+          if (!stock) return null;
+
+          const quote = stock.quote ?? {};
+          const currentPrice = Number(quote.currentPrice ?? stock.price ?? 0);
+          const changeRate = Number(quote.changeRate ?? stock.changeRate ?? 0);
           const isSelected = selectedStockId === stock.id || selectedStockId === stock.code;
-          const isUp = stock.quote.changeRate >= 0;
+          const isUp = changeRate >= 0;
 
           return (
             <button
@@ -59,7 +62,7 @@ export const StockQuickSelector: React.FC<StockQuickSelectorProps> = ({
 
               <div className="mt-1 flex items-baseline justify-between gap-1">
                 <span className="text-xs sm:text-sm font-extrabold text-slate-900 tabular-nums">
-                  {stock.quote.currentPrice?.toLocaleString() || 0}원
+                  {currentPrice.toLocaleString()}원
                 </span>
 
                 <span
@@ -73,7 +76,7 @@ export const StockQuickSelector: React.FC<StockQuickSelectorProps> = ({
                     <TrendingDown className="w-3 h-3 mr-0.5 inline" />
                   )}
                   {isUp ? '+' : ''}
-                  {stock.quote.changeRate?.toFixed(2)}%
+                  {changeRate.toFixed(2)}%
                 </span>
               </div>
 

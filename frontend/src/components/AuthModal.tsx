@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { X, User, Lock, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from './Toast';
@@ -28,31 +28,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
     try {
       if (mode === 'login') {
-        // 백엔드 로그인 API 호출 (GET 방식, 쿼리 파라미터 사용)
-        const response = await fetch(`http://localhost:8080/login?username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`);
-        
+        const response = await fetch(
+          `http://localhost:8080/login?username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
+        );
+
         const resultText = await response.text();
         if (!response.ok || resultText.includes('실패')) {
           showToast(resultText || '로그인 실패', 'error');
           return;
         }
 
-        login(email, name || undefined);
-        showToast(`${email.split('@')[0]}님, 환영합니다!`);
+        const displayName = name || email.split('@')[0];
+        login(displayName, email);
+        showToast(`${displayName}님, 환영합니다!`);
       } else {
         if (!name) {
           showToast('이름을 입력해주세요.', 'error');
           return;
         }
 
-        // 백엔드 회원가입 API 호출 (POST 방식, username에 email 매핑)
         const response = await fetch('http://localhost:8080/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            username: email, // 백엔드가 요구하는 username에 이메일 전달
-            password: password, 
-            name: name 
+          body: JSON.stringify({
+            username: email,
+            password: password,
+            name: name,
           }),
         });
 
@@ -65,6 +66,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         signup(email, name);
         showToast(`${name}님의 회원가입이 완료되었습니다!`);
       }
+
       onClose();
     } catch (error) {
       showToast('서버 통신 중 오류가 발생했습니다.', 'error');
@@ -81,7 +83,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="p-6 pb-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-full overflow-hidden shadow-sm border border-slate-200 shrink-0 bg-slate-50">
@@ -102,7 +103,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        {/* Tab switch */}
         <div className="p-6 pt-4 space-y-5">
           <div className="flex items-center p-1 bg-slate-100 rounded-xl">
             <button
@@ -123,7 +123,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </button>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-3.5">
             {mode === 'signup' && (
               <div>
@@ -181,7 +180,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           </form>
         </div>
 
-        {/* Footer */}
         <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 text-center text-[11px] text-slate-400">
           개인정보 및 관심 종목 정보는 브라우저 로컬 저장소에 안전하게 유지됩니다.
         </div>

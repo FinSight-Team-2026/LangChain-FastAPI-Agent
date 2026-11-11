@@ -7,6 +7,16 @@ interface SentimentGaugeCardProps {
 }
 
 export const SentimentGaugeCard: React.FC<SentimentGaugeCardProps> = ({ stock }) => {
+  const quote = stock.quote ?? {};
+  const panicDefense = stock.panicDefense ?? {
+    isActive: false,
+    stockChangePercent: 0,
+    kospiChangePercent: 0,
+    badgeText: '정보 없음',
+    headline: '안심 방어 가이드를 확인해보세요.',
+    recommendation: '데이터가 아직 준비되지 않았습니다.',
+    defenseType: 'market_rebound',
+  };
   const score = stock.sentimentScore;
 
   // Circular gauge calculations
@@ -148,20 +158,20 @@ export const SentimentGaugeCard: React.FC<SentimentGaugeCardProps> = ({ stock })
         <div className="mt-2.5 p-3 bg-white rounded-lg border border-blue-100 shadow-2xs">
           <div className="flex items-center justify-between text-xs font-extrabold text-slate-800 tabular-nums">
             <span className="text-blue-700">
-              {stock.name}: {stock.quote.changeRate >= 0 ? '+' : ''}{stock.quote.changeRate.toFixed(1)}%
+              {stock.name}: {Number(quote.changeRate ?? stock.changeRate ?? 0) >= 0 ? '+' : ''}{Number(quote.changeRate ?? stock.changeRate ?? 0).toFixed(1)}%
             </span>
             <span className="text-slate-700">
-              KOSPI: {stock.panicDefense.kospiChangePercent >= 0 ? '+' : ''}{stock.panicDefense.kospiChangePercent.toFixed(1)}%
+              KOSPI: {Number(panicDefense.kospiChangePercent ?? 0) >= 0 ? '+' : ''}{Number(panicDefense.kospiChangePercent ?? 0).toFixed(1)}%
             </span>
           </div>
 
           <div className="mt-2 text-xs sm:text-sm font-bold text-blue-900 leading-snug">
-            {stock.panicDefense.headline}
+            {panicDefense.headline}
           </div>
 
-          {stock.panicDefense.recommendation && (
+          {panicDefense.recommendation && (
             <div className="mt-1 text-xs text-slate-600 leading-relaxed font-medium">
-              💡 {stock.panicDefense.recommendation}
+              💡 {panicDefense.recommendation}
             </div>
           )}
         </div>

@@ -28,6 +28,9 @@ export const SentimentComparison: React.FC<SentimentComparisonProps> = ({
 
   // Sort stocks according to selected criteria
   const sortedStocks = [...stocks].sort((a, b) => {
+    const aQuote = a.quote ?? {};
+    const bQuote = b.quote ?? {};
+
     if (sortBy === 'sentimentScore') {
       return b.sentimentScore - a.sentimentScore;
     }
@@ -35,7 +38,7 @@ export const SentimentComparison: React.FC<SentimentComparisonProps> = ({
       return b.sentimentBreakdown.positive - a.sentimentBreakdown.positive;
     }
     if (sortBy === 'changeRate') {
-      return b.changeRate - a.changeRate;
+      return Number(b.changeRate ?? bQuote.changeRate ?? 0) - Number(a.changeRate ?? aQuote.changeRate ?? 0);
     }
     return 0;
   });
@@ -130,6 +133,7 @@ export const SentimentComparison: React.FC<SentimentComparisonProps> = ({
         {/* Comparative List */}
         <div className="divide-y divide-slate-100">
           {sortedStocks.map((stock, index) => {
+            const quote = stock.quote ?? {};
             const sentimentMeta = getSentimentMeta(stock.sentimentScore);
 
             return (
@@ -152,10 +156,10 @@ export const SentimentComparison: React.FC<SentimentComparisonProps> = ({
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
                       <span className="text-xs text-slate-800 font-semibold num-font">
-                        {formatPrice(stock.price)}
+                        {formatPrice(Number(stock.price ?? quote.currentPrice ?? 0))}
                       </span>
-                      <span className={`text-xs font-bold num-font ${getPriceColorClass(stock.changeRate)}`}>
-                        {formatChangeRate(stock.changeRate)}
+                      <span className={`text-xs font-bold num-font ${getPriceColorClass(Number(stock.changeRate ?? quote.changeRate ?? 0))}`}>
+                        {formatChangeRate(Number(stock.changeRate ?? quote.changeRate ?? 0))}
                       </span>
                     </div>
                   </div>
@@ -196,7 +200,7 @@ export const SentimentComparison: React.FC<SentimentComparisonProps> = ({
                   <div className="flex items-center gap-1.5 mt-2">
                     <span className="text-[11px] text-slate-400">주요 모멘텀:</span>
                     <span className="text-[11px] text-slate-700 font-medium bg-slate-100 px-2 py-0.5 rounded-md truncate max-w-xs">
-                      {stock.sentimentSummary[0]}
+                      {(stock.sentimentSummary ?? ['분석 정보 없음'])[0]}
                     </span>
                   </div>
                 </div>
@@ -208,7 +212,7 @@ export const SentimentComparison: React.FC<SentimentComparisonProps> = ({
                       <span>뉴스 분석</span>
                       <ChevronRight className="w-3.5 h-3.5" />
                     </div>
-                    <div className="text-[10px] text-slate-400">{stock.news.length}개 기사 분석됨</div>
+                    <div className="text-[10px] text-slate-400">{(stock.news ?? stock.newsSummary3Lines ?? []).length}개 기사 분석됨</div>
                   </div>
                 </div>
               </div>

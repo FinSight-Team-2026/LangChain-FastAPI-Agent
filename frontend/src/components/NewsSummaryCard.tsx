@@ -1,12 +1,14 @@
 import React from 'react';
-import { StockData } from '../types/stock';
+import { Stock } from '../types/stock';
 import { Newspaper, Compass, Target, HeartHandshake, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
 interface NewsThreeLineSummaryProps {
-  stock: StockData;
+  stock: Stock;
 }
 
 export const NewsThreeLineSummary: React.FC<NewsThreeLineSummaryProps> = ({ stock }) => {
+  const newsItems = stock.newsSummary3Lines ?? [];
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-xs h-full flex flex-col justify-between">
       {/* Header: 대제목 바로 아래에 NLP 문구 배치 */}
@@ -25,7 +27,7 @@ export const NewsThreeLineSummary: React.FC<NewsThreeLineSummaryProps> = ({ stoc
 
         {/* 3-Line News List */}
         <div className="divide-y divide-slate-100 mt-1">
-          {stock.newsSummary3Lines.map((news, idx) => (
+          {newsItems.map((news, idx) => (
             <div key={news.id} className="py-3 flex items-start gap-3 first:pt-2.5 last:pb-1">
               <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
                 {idx + 1}
@@ -66,11 +68,16 @@ export const NewsThreeLineSummary: React.FC<NewsThreeLineSummaryProps> = ({ stoc
 };
 
 interface FinalConclusionCardProps {
-  stock: StockData;
+  stock: Stock;
 }
 
 export const FinalConclusionCard: React.FC<FinalConclusionCardProps> = ({ stock }) => {
-  const conclusion = stock.finalConclusion;
+  const conclusion = stock.finalConclusion ?? {
+    badge: '관망 추천' as const,
+    guidance: '기본 투자 가이드를 확인해보세요.',
+    targetSupport: '시장 추세를 확인하세요.',
+    psychologicalTip: '감정적 매매를 피하고 장기 관점을 유지하세요.'
+  };
 
   // Badge styling
   const getBadgeStyle = (badge: string) => {
@@ -159,7 +166,7 @@ export const FinalConclusionCard: React.FC<FinalConclusionCardProps> = ({ stock 
 };
 
 // Legacy wrapper if imported as NewsSummaryCard
-export const NewsSummaryCard: React.FC<{ stock: StockData }> = ({ stock }) => {
+export const NewsSummaryCard: React.FC<{ stock: Stock }> = ({ stock }) => {
   return (
     <div className="space-y-4">
       <NewsThreeLineSummary stock={stock} />

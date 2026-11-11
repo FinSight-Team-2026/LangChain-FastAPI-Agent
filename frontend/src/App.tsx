@@ -11,10 +11,13 @@ const CODE_MAP: Record<string, string> = {
   '035420': '035420',
   '삼성전자': '005930',
   '005930': '005930',
+  'SAMSUNG_ELEC': '005930',
   '삼성전기': '009150',
   '009150': '009150',
+  'SAMSUNG_MECH': '009150',
   'SK하이닉스': '000660',
   '000660': '000660',
+  'SK_HYNIX': '000660',
   '카카오': '035720',
   '035720': '035720',
   '현대차': '005380',
@@ -44,7 +47,6 @@ export default function App() {
         if (data && data.stocks) {
           const updatedStocks = { ...STOCKS_DATA };
           data.stocks.forEach((summary: any) => {
-            // 종목 코드 매칭하여 실시간 가격 및 등락률 덮어쓰기
             Object.keys(updatedStocks).forEach((key) => {
               if (updatedStocks[key].code === summary.stockCode) {
                 updatedStocks[key] = {
@@ -65,13 +67,10 @@ export default function App() {
       .catch((err) => console.warn('대시보드 API 연동 실패, 목업 유지:', err));
   }, []);
 
-  // 2. 종목 상세 API 연동
+  // 2. 종목 상세 API 연동 (목업이 먼저 덮어쓰지 않도록 수정하여 종목 변경 시 즉시 반영)
   useEffect(() => {
     const code = CODE_MAP[selectedStockId] || selectedStockId;
-    if (stocksMap[selectedStockId]) {
-      setCurrentStockData(stocksMap[selectedStockId]);
-    }
-
+    
     fetch(`http://localhost:8080/api/stocks/${code}/detail`)
       .then((res) => {
         if (!res.ok) throw new Error('Network response was not ok');
@@ -83,7 +82,10 @@ export default function App() {
         }
       })
       .catch((err) => {
-        console.warn('백엔드 상세 API 연동 실패:', err);
+        console.warn('백엔드 상세 API 연동 실패, 로컬 데이터 대체:', err);
+        if (stocksMap[selectedStockId]) {
+          setCurrentStockData(stocksMap[selectedStockId]);
+        }
       });
   }, [selectedStockId, stocksMap]);
 
@@ -125,7 +127,7 @@ export default function App() {
           <DesktopDashboard
             selectedStock={currentStockData}
             onSelectStock={(id) => setSelectedStockId(id)}
-            stocksData={stocksMap} // 실시간 데이터 전달
+            stocksData={stocksMap}
           />
         )}
       </main>

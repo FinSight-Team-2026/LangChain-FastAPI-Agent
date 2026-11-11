@@ -38,11 +38,13 @@ export const SearchModal: React.FC<SearchModalProps> = ({
   const filteredStocks = stocks.filter((stock) => {
     const q = query.toLowerCase().trim();
     if (!q) return true;
+    const sector = stock.sector ?? '';
+    const keyDrivers = stock.keyDrivers ?? [];
     return (
       stock.name.toLowerCase().includes(q) ||
       stock.code.includes(q) ||
-      stock.sector.toLowerCase().includes(q) ||
-      stock.keyDrivers.some((d) => d.toLowerCase().includes(q))
+      sector.toLowerCase().includes(q) ||
+      keyDrivers.some((d) => d.toLowerCase().includes(q))
     );
   });
 
@@ -121,6 +123,7 @@ export const SearchModal: React.FC<SearchModalProps> = ({
             </div>
           ) : (
             filteredStocks.map((stock) => {
+              const quote = stock.quote ?? {};
               const isWatched = isInWatchlist(stock.id);
               const sentimentMeta = getSentimentMeta(stock.sentimentScore);
 
@@ -141,17 +144,17 @@ export const SearchModal: React.FC<SearchModalProps> = ({
                       </span>
                     </div>
                     <div className="text-xs text-slate-400 mt-0.5 truncate">
-                      {stock.sector} · {stock.sentimentSummary[0]}
+                      {(stock.sector ?? '종목')} · {(stock.sentimentSummary ?? ['분석 정보 없음'])[0]}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-4 shrink-0 text-right">
                     <div>
                       <div className="text-sm font-bold text-slate-900 num-font">
-                        {formatPrice(stock.price)}
+                        {formatPrice(Number(stock.price ?? quote.currentPrice ?? 0))}
                       </div>
-                      <div className={`text-xs font-semibold num-font ${getPriceColorClass(stock.changeRate)}`}>
-                        {formatChangeRate(stock.changeRate)}
+                      <div className={`text-xs font-semibold num-font ${getPriceColorClass(Number(stock.changeRate ?? quote.changeRate ?? 0))}`}>
+                        {formatChangeRate(Number(stock.changeRate ?? quote.changeRate ?? 0))}
                       </div>
                     </div>
 

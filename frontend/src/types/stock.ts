@@ -10,10 +10,14 @@ export interface NewsItem {
   id: string;
   title: string;
   source: string;
-  timeAgo: string;
+  timeAgo?: string;
+  publishedAt?: string;
+  snippet?: string;
   sentiment: 'positive' | 'neutral' | 'negative';
-  sentimentLabel: '호재' | '이슈' | '리스크';
-  summary: string;
+  sentimentLabel?: '호재' | '이슈' | '리스크';
+  sentimentScore?: number;
+  sentimentReason?: string;
+  summary?: string;
 }
 
 export interface PanicDefenseInfo {
@@ -27,24 +31,24 @@ export interface PanicDefenseInfo {
 }
 
 export interface StockQuote {
-  code: string;
-  name: string;
+  code?: string;
+  name?: string;
   englishName?: string;
-  currentPrice: number;
-  changePrice: number;
-  changeRate: number; // e.g. -2.13 or 1.77
-  high52w: number;
-  low52w: number;
-  volume: number; // 주
-  tradingValue: number; // 억원
-  marketCap: number; // 조원 or 억원
-  openPrice: number;
-  highPrice: number;
-  lowPrice: number;
-  prevClosePrice: number;
-  foreignOwnership: number; // %
-  per: number;
-  pbr: number;
+  currentPrice?: number;
+  changePrice?: number;
+  changeRate?: number; // e.g. -2.13 or 1.77
+  high52w?: number;
+  low52w?: number;
+  volume?: number; // 주
+  tradingValue?: number; // 억원
+  marketCap?: number; // 조원 or 억원
+  openPrice?: number;
+  highPrice?: number;
+  lowPrice?: number;
+  prevClosePrice?: number;
+  foreignOwnership?: number; // %
+  per?: number;
+  pbr?: number;
 }
 
 export interface YearlyCandlePoint {
@@ -59,30 +63,49 @@ export interface YearlyCandlePoint {
   ma60?: number;
 }
 
+export type SentimentType = 'positive' | 'neutral' | 'negative';
+
 export interface Stock {
   id: string;
   name: string;
   code: string;
   category?: string;
-  quote: StockQuote;
+  market?: string;
+  sector?: string;
+  quote?: StockQuote;
+  price?: number;
+  change?: number;
+  changeRate?: number;
+  tradingValue?: number;
+  marketCap?: number;
+  volume?: number;
+  volumeSurgeRate?: number;
+  valueSurgeRate?: number;
   sentimentScore: number;
-  sentimentStatus: '긍정' | '매우 긍정' | '중립' | '주의' | '공포';
+  sentimentLabel?: string;
+  sentimentStatus?: '긍정' | '매우 긍정' | '중립' | '주의' | '공포';
   sentimentBreakdown: {
     positive: number;
     neutral: number;
     negative: number;
   };
-  metrics7d: DailyMetric[];
-  yearlyChartData: YearlyCandlePoint[];
-  panicDefense: PanicDefenseInfo;
-  newsSummary3Lines: NewsItem[];
-  finalConclusion: {
+  sentimentSummary?: string[];
+  keyDrivers?: string[];
+  metrics7d?: DailyMetric[];
+  sentimentHistory?: Array<{ score: number; date?: string; label?: string; price?: number }>;
+  yearlyChartData?: YearlyCandlePoint[];
+  panicDefense?: PanicDefenseInfo;
+  news?: Array<NewsItem & { keywords?: string[]; snippet?: string; publishedAt?: string; sentimentScore?: number; sentimentReason?: string }>;
+  newsSummary3Lines?: NewsItem[];
+  finalConclusion?: {
     badge: '관망 추천' | '분할 매수 추천' | '적극 매수' | '리스크 관리';
     guidance: string;
     targetSupport: string;
     psychologicalTip: string;
   };
 }
+
+export type StockData = Stock;
 
 export interface StockTerm {
   id: string;

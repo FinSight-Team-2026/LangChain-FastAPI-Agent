@@ -20,9 +20,9 @@ export const RankingSection: React.FC<RankingSectionProps> = ({ stocks, onSelect
   const sortedStocks = [...stocks].sort((a, b) => {
     switch (criterion) {
       case 'value':
-        return b.tradingValue - a.tradingValue;
+        return Number(b.tradingValue ?? 0) - Number(a.tradingValue ?? 0);
       case 'marketCap':
-        return (b.marketCap || 0) - (a.marketCap || 0);
+        return Number(b.marketCap ?? 0) - Number(a.marketCap ?? 0);
       default:
         return 0;
     }
@@ -39,16 +39,20 @@ export const RankingSection: React.FC<RankingSectionProps> = ({ stocks, onSelect
   };
 
   const getMetricDisplay = (stock: Stock) => {
+    const quote = stock.quote ?? {};
+
     switch (criterion) {
       case 'value':
         return {
           label: '거래대금',
-          value: formatTradingValue(stock.tradingValue),
+          value: formatTradingValue(Number(stock.tradingValue ?? quote.tradingValue ?? 0)),
         };
       case 'marketCap':
         return {
           label: '시가총액',
-          value: stock.marketCap ? `${(stock.marketCap / 10000).toLocaleString()}조 원` : '정보 없음',
+          value: stock.marketCap || quote.marketCap
+            ? `${((stock.marketCap ?? quote.marketCap ?? 0) / 10000).toLocaleString()}조 원`
+            : '정보 없음',
         };
     }
   };
@@ -98,6 +102,7 @@ export const RankingSection: React.FC<RankingSectionProps> = ({ stocks, onSelect
         {sortedStocks.map((stock, index) => {
           const rank = index + 1;
           const isTop3 = rank <= 3;
+          const quote = stock.quote ?? {};
           const metric = getMetricDisplay(stock);
           const isWatched = isInWatchlist(stock.id);
           const sentimentMeta = getSentimentMeta(stock.sentimentScore);
@@ -145,10 +150,10 @@ export const RankingSection: React.FC<RankingSectionProps> = ({ stocks, onSelect
 
                 <div className="min-w-[85px] sm:min-w-[100px]">
                   <div className="font-bold text-sm sm:text-base text-slate-900 num-font">
-                    {formatPrice(stock.price)}
+                    {formatPrice(Number(stock.price ?? quote.currentPrice ?? 0))}
                   </div>
-                  <div className={`text-xs font-semibold num-font ${getPriceColorClass(stock.changeRate)}`}>
-                    {formatChangeRate(stock.changeRate)}
+                  <div className={`text-xs font-semibold num-font ${getPriceColorClass(Number(stock.changeRate ?? quote.changeRate ?? 0))}`}>
+                    {formatChangeRate(Number(stock.changeRate ?? quote.changeRate ?? 0))}
                   </div>
                 </div>
 

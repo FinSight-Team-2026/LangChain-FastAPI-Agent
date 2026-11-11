@@ -3,7 +3,13 @@ import React, { createContext, useContext, useState } from 'react';
 interface AuthContextType {
   isLoggedIn: boolean;
   user: { name: string; email: string } | null;
+  watchlist: string[];
   login: (name: string, email: string) => void;
+  signup: (email: string, name: string) => void;
+  isInWatchlist: (stockId: string) => boolean;
+  addToWatchlist: (stockId: string, stockName?: string) => Promise<boolean>;
+  removeFromWatchlist: (stockId: string) => void;
+  toggleWatchlist: (stockId: string, stockName?: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -15,10 +21,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     name: '김상원',
     email: 'sangwon@moodon.com',
   });
+  const [watchlist, setWatchlist] = useState<string[]>(['005930']);
 
   const login = (name: string, email: string) => {
     setIsLoggedIn(true);
     setUser({ name, email });
+  };
+
+  const signup = (email: string, name: string) => {
+    setIsLoggedIn(true);
+    setUser({ name, email });
+  };
+
+  const isInWatchlist = (stockId: string) => watchlist.includes(stockId);
+
+  const addToWatchlist = async (stockId: string) => {
+    if (watchlist.includes(stockId)) {
+      return false;
+    }
+    setWatchlist((prev) => [...prev, stockId]);
+    return true;
+  };
+
+  const removeFromWatchlist = (stockId: string) => {
+    setWatchlist((prev) => prev.filter((id) => id !== stockId));
+  };
+
+  const toggleWatchlist = async (stockId: string) => {
+    if (watchlist.includes(stockId)) {
+      removeFromWatchlist(stockId);
+      return false;
+    }
+    await addToWatchlist(stockId);
+    return true;
   };
 
   const logout = () => {
@@ -27,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, login, logout }}>
+    <AuthContext.Provider value={{ isLoggedIn, user, watchlist, login, signup, isInWatchlist, addToWatchlist, removeFromWatchlist, toggleWatchlist, logout }}>
       {children}
     </AuthContext.Provider>
   );
