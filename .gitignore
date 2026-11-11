@@ -9,6 +9,12 @@ coverage/
 !.env.example
 __pycache__/
 *.pyc
+<<<<<<< HEAD
+=======
+.vscode/.venv/
+.env
+<<<<<<< HEAD
+>>>>>>> 874ea65 (feat: 대시보드 및 AI 분석 파이프라인 수정 사항 최종 통합)
 
 # Virtual Environments & IDE
 .venv/
@@ -17,4 +23,11 @@ backend/venv/
 .vscode/
 .gradle/
 backend/bin/
+<<<<<<< HEAD
 .properties
+=======
+=======
+.properties
+.venv/
+>>>>>>> 693164450bd2068b7011fb1b0b4c3fa33145e219
+>>>>>>> 874ea65 (feat: 대시보드 및 AI 분석 파이프라인 수정 사항 최종 통합)
