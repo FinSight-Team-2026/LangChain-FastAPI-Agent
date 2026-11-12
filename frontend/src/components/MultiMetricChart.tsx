@@ -62,7 +62,7 @@ export const MultiMetricChart: React.FC<MultiMetricChartProps> = ({
 
         const data: KospiResponse = await response.json();
 
-        if (data.available && typeof data.index === 'number') {
+        if (data.available !== false && typeof data.index === 'number') {
           setKospiLive(data);
           setKospiStatus('success');
         } else {

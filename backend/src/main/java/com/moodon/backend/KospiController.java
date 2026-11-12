@@ -18,6 +18,8 @@ public class KospiController {
 
     @GetMapping("/api/stocks/kospi")
     public Map<String, Object> getKospi() {
-        return kisService.fetchKospiIndex();
+        Map<String, Object> result = new java.util.HashMap<>(kisService.fetchKospiIndex());
+        result.put("available", result.get("index") != null);
+        return result;
     }
 }

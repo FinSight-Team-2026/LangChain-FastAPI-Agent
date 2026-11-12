@@ -1,68 +1,120 @@
 import React, { createContext, useContext, useState } from 'react';
 
+interface User {
+  name: string;
+  email: string;
+}
+
 interface AuthContextType {
   isLoggedIn: boolean;
-  user: { name: string; email: string } | null;
+  user: User | null;
   watchlist: string[];
-  login: (name: string, email: string) => void;
+  login: (email: string, name?: string) => void;
   signup: (email: string, name: string) => void;
-  isInWatchlist: (stockId: string) => boolean;
-  addToWatchlist: (stockId: string, stockName?: string) => Promise<boolean>;
-  removeFromWatchlist: (stockId: string) => void;
-  toggleWatchlist: (stockId: string, stockName?: string) => Promise<boolean>;
+  updateUser: (name: string, email: string) => void;
   logout: () => void;
+  isInWatchlist: (code: string) => boolean;
+  addToWatchlist: (code: string) => void;
+  removeFromWatchlist: (code: string) => void;
+  toggleWatchlist: (code: string) => void;
 }
+
+const STORAGE_KEY = 'moodon_user';
+const WATCHLIST_KEY = 'moodon_watchlist';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState(true); // 기본 로그인 상태 (테스트용)
-  const [user, setUser] = useState<{ name: string; email: string } | null>({
-    name: '김상원',
-    email: 'sangwon@moodon.com',
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
-  const [watchlist, setWatchlist] = useState<string[]>(['005930']);
 
-  const login = (name: string, email: string) => {
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    return !!localStorage.getItem(STORAGE_KEY);
+  });
+
+  const [watchlist, setWatchlist] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(WATCHLIST_KEY);
+      return saved ? JSON.parse(saved) : ['005930'];
+    } catch {
+      return ['005930'];
+    }
+  });
+
+  const login = (email: string, name?: string) => {
+    const displayName = name || email.split('@')[0];
+    const newUser = { email, name: displayName };
+    setUser(newUser);
     setIsLoggedIn(true);
-    setUser({ name, email });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
   };
 
   const signup = (email: string, name: string) => {
+    const newUser = { email, name };
+    setUser(newUser);
     setIsLoggedIn(true);
-    setUser({ name, email });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
   };
 
-  const isInWatchlist = (stockId: string) => watchlist.includes(stockId);
-
-  const addToWatchlist = async (stockId: string) => {
-    if (watchlist.includes(stockId)) {
-      return false;
-    }
-    setWatchlist((prev) => [...prev, stockId]);
-    return true;
-  };
-
-  const removeFromWatchlist = (stockId: string) => {
-    setWatchlist((prev) => prev.filter((id) => id !== stockId));
-  };
-
-  const toggleWatchlist = async (stockId: string) => {
-    if (watchlist.includes(stockId)) {
-      removeFromWatchlist(stockId);
-      return false;
-    }
-    await addToWatchlist(stockId);
-    return true;
+  const updateUser = (name: string, email: string) => {
+    const updated = { name, email };
+    setUser(updated);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   };
 
   const logout = () => {
-    setIsLoggedIn(false);
     setUser(null);
+    setIsLoggedIn(false);
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(WATCHLIST_KEY);
+  };
+
+  const isInWatchlist = (code: string) => watchlist.includes(code);
+
+  const addToWatchlist = (code: string) => {
+    if (!watchlist.includes(code)) {
+      const updated = [...watchlist, code];
+      setWatchlist(updated);
+      localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updated));
+    }
+  };
+
+  const removeFromWatchlist = (code: string) => {
+    const updated = watchlist.filter((c) => c !== code);
+    setWatchlist(updated);
+    localStorage.setItem(WATCHLIST_KEY, JSON.stringify(updated));
+  };
+
+  const toggleWatchlist = (code: string) => {
+    if (watchlist.includes(code)) {
+      removeFromWatchlist(code);
+    } else {
+      addToWatchlist(code);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, user, watchlist, login, signup, isInWatchlist, addToWatchlist, removeFromWatchlist, toggleWatchlist, logout }}>
+    <AuthContext.Provider
+      value={{
+        isLoggedIn,
+        user,
+        watchlist,
+        login,
+        signup,
+        updateUser,
+        logout,
+        isInWatchlist,
+        addToWatchlist,
+        removeFromWatchlist,
+        toggleWatchlist,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

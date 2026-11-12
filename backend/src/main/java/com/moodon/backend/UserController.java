@@ -42,6 +42,7 @@ public class UserController {
             User user = new User();
             user.setUsername(username);
             user.setPassword(this.passwordEncoder.encode(password));
+            user.setEmail(username);
             user.setNickname(name != null ? name : username);
             this.userRepository.save(user);
             return "회원가입 성공! 환영합니다, " + name + "님!";

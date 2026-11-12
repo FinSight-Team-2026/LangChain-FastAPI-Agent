@@ -1,5 +1,6 @@
+import { useAuth } from '../context/AuthContext';
 import React, { useState } from 'react';
-import { User, Mail, ShieldCheck, Trash2, CheckCircle2, AlertTriangle, Key } from 'lucide-react';
+import { User, Mail, ShieldCheck, Trash2, CheckCircle2, AlertTriangle, Key, Lock } from 'lucide-react';
 
 interface MyPageProps {
   onBackToDashboard: () => void;
@@ -10,37 +11,91 @@ interface MyPageProps {
   onUpdateUser?: (name: string, email: string) => void;
 }
 
+const API_BASE_URL = (import.meta.env.VITE_AI_API_URL || 'http://localhost:8080').replace(/\/$/, '');
+
 export const MyPage: React.FC<MyPageProps> = ({
   onBackToDashboard,
   userAvatarUrl = '',
   onWithdrawSuccess,
-  userName = '', // 기본값을 빈 값으로 변경
-  userEmail = '', // 기본값을 빈 값으로 변경
+  userName = '',
+  userEmail = '',
   onUpdateUser,
 }) => {
-  const [name, setName] = useState(userName);
-  const [email, setEmail] = useState(userEmail);
+  const { user, updateUser, logout } = useAuth();
+  const [name, setName] = useState(user?.name || userName);
+  const [email, setEmail] = useState(user?.email || userEmail);
+
+  React.useEffect(() => {
+    if (user) {
+      setName(user.name);
+      setEmail(user.email);
+    }
+  }, [user]);
+
   const [saveToast, setSaveToast] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // 회원탈퇴 모달 상태
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawPassword, setWithdrawPassword] = useState('');
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
   const [withdrawComplete, setWithdrawComplete] = useState(false);
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (onUpdateUser) {
-      onUpdateUser(name, email);
+    setErrorMsg(null);
+    const targetUsername = user?.email || email;
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/update?username=${encodeURIComponent(targetUsername)}&newNickname=${encodeURIComponent(name.trim())}`
+      );
+      const resultText = await response.text();
+      if (!response.ok || resultText.includes('실패')) {
+        setErrorMsg(resultText || '회원정보 수정에 실패했습니다.');
+        return;
+      }
+
+      if (onUpdateUser) onUpdateUser(name.trim(), targetUsername);
+      if (updateUser) updateUser(name.trim(), targetUsername);
+      setSaveToast(true);
+      setTimeout(() => setSaveToast(false), 2500);
+    } catch {
+      setErrorMsg('서버 연결에 실패했습니다.');
     }
-    setSaveToast(true);
-    setTimeout(() => setSaveToast(false), 2500);
   };
 
-  const handleConfirmWithdraw = () => {
-    setWithdrawComplete(true);
-    setTimeout(() => {
-      setShowWithdrawModal(false);
-      if (onWithdrawSuccess) onWithdrawSuccess();
-    }, 1500);
+  const handleConfirmWithdraw = async () => {
+    setWithdrawError(null);
+    const targetUsername = user?.email || email;
+
+    if (!withdrawPassword) {
+      setWithdrawError('본인 확인을 위해 비밀번호를 입력해주세요.');
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/delete?username=${encodeURIComponent(targetUsername)}&password=${encodeURIComponent(withdrawPassword)}`
+      );
+      const resultText = await response.text();
+      if (!response.ok || resultText.includes('실패')) {
+        setWithdrawError(resultText || '회원 탈퇴에 실패했습니다.');
+        return;
+      }
+
+      setWithdrawComplete(true);
+      setTimeout(() => {
+        logout();
+        onBackToDashboard();
+      }, 1200);
+      setTimeout(() => {
+        setShowWithdrawModal(false);
+        if (onWithdrawSuccess) onWithdrawSuccess();
+      }, 1500);
+    } catch {
+      setWithdrawError('서버 연결에 실패했습니다.');
+    }
   };
 
   return (
@@ -64,6 +119,14 @@ export const MyPage: React.FC<MyPageProps> = ({
         </div>
       )}
 
+      {/* 에러 알림 */}
+      {errorMsg && (
+        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2 text-xs sm:text-sm font-bold text-rose-700">
+          <AlertTriangle className="w-4 h-4" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
       {/* 2. 회원정보 수정 카드 */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-6">
         <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
@@ -72,13 +135,13 @@ export const MyPage: React.FC<MyPageProps> = ({
           </div>
           <div>
             <h3 className="text-base font-bold text-slate-900">회원정보 수정</h3>
-            <p className="text-xs sm:text-sm text-slate-500">이름과 이메일 주소를 변경할 수 있습니다.</p>
+            <p className="text-xs sm:text-sm text-slate-500">닉네임을 변경하여 서버 계정에 반영할 수 있습니다.</p>
           </div>
         </div>
 
         <form onSubmit={handleSaveProfile} className="space-y-4">
           <div>
-            <label className="block text-xs sm:text-sm font-bold text-slate-700 mb-1.5">이름</label>
+            <label className="block text-xs sm:text-sm font-bold text-slate-700 mb-1.5">이름 (닉네임)</label>
             <div className="relative">
               <User className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
               <input
@@ -93,16 +156,14 @@ export const MyPage: React.FC<MyPageProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs sm:text-sm font-bold text-slate-700 mb-1.5">이메일 주소</label>
+            <label className="block text-xs sm:text-sm font-bold text-slate-700 mb-1.5">이메일 주소 (아이디)</label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="example@email.com"
-                autoComplete="off"
-                className="w-full pl-10 pr-4 py-3 bg-slate-50/50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 font-medium focus:outline-none focus:border-blue-600 transition-colors"
+                readOnly
+                className="w-full pl-10 pr-4 py-3 bg-slate-100 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-500 font-medium cursor-not-allowed"
               />
             </div>
           </div>
@@ -118,22 +179,22 @@ export const MyPage: React.FC<MyPageProps> = ({
         </form>
       </div>
 
-      {/* 3. 비밀번호 변경 안내 카드 */}
+      {/* 3. 보안 안내 카드 */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs space-y-4">
         <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
           <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
             <Key className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-slate-900">비밀번호 변경</h3>
-            <p className="text-xs sm:text-sm text-slate-500">계정 보안을 위한 비밀번호 관리</p>
+            <h3 className="text-base font-bold text-slate-900">계정 보안</h3>
+            <p className="text-xs sm:text-sm text-slate-500">BCrypt 암호화 및 JWT 인증 적용됨</p>
           </div>
         </div>
 
-        <div className="p-4 bg-amber-50/60 border border-amber-200/80 rounded-xl flex items-start gap-3">
-          <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-xs sm:text-sm text-amber-900 leading-relaxed font-medium">
-            현재 로그인은 브라우저에 저장되는 데모 방식이며 서버 인증 기능이 없습니다. 비밀번호를 안전하게 검증·변경할 수 있도록 인증 서버 연결 후 이용할 수 있습니다.
+        <div className="p-4 bg-blue-50/60 border border-blue-200/80 rounded-xl flex items-start gap-3">
+          <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+          <p className="text-xs sm:text-sm text-blue-900 leading-relaxed font-medium">
+            Spring Boot 인증 서버와 연동되어 있으며, 비밀번호는 BCrypt 단방향 해시로 암호화되어 안전하게 보호됩니다.
           </p>
         </div>
       </div>
@@ -148,13 +209,17 @@ export const MyPage: React.FC<MyPageProps> = ({
             <div>
               <h3 className="text-base font-bold text-slate-900">회원탈퇴</h3>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                탈퇴하면 이 브라우저에 저장된 회원정보와 내 관심 종목이 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+                탈퇴하면 서버 DB의 회원정보와 브라우저의 관심 종목이 모두 삭제됩니다.
               </p>
             </div>
           </div>
 
           <button
-            onClick={() => setShowWithdrawModal(true)}
+            onClick={() => {
+              setWithdrawPassword('');
+              setWithdrawError(null);
+              setShowWithdrawModal(true);
+            }}
             className="px-4 py-2.5 text-xs sm:text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-xl transition-colors cursor-pointer whitespace-nowrap self-start sm:self-center"
           >
             회원탈퇴
@@ -178,9 +243,26 @@ export const MyPage: React.FC<MyPageProps> = ({
                   <AlertTriangle className="w-5 h-5 shrink-0" />
                   <span>정말 회원탈퇴를 진행하시겠습니까?</span>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-600 mb-6 leading-relaxed">
-                  브라우저에 저장된 모든 사용자 데이터 및 설정이 즉시 삭제되며 복구할 수 없습니다.
+                <p className="text-xs sm:text-sm text-slate-600 mb-4 leading-relaxed">
+                  서버 데이터베이스의 모든 계정 정보가 즉시 삭제되며 복구할 수 없습니다. 본인 확인을 위해 비밀번호를 입력해 주세요.
                 </p>
+
+                <div className="mb-4">
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <input
+                      type="password"
+                      value={withdrawPassword}
+                      onChange={(e) => setWithdrawPassword(e.target.value)}
+                      placeholder="현재 비밀번호 입력"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                  {withdrawError && (
+                    <p className="mt-1.5 text-xs font-semibold text-rose-600">{withdrawError}</p>
+                  )}
+                </div>
+
                 <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                   <button
                     onClick={() => setShowWithdrawModal(false)}

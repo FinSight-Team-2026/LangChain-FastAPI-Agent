@@ -27,7 +27,7 @@ export const StockQuickSelector: React.FC<StockQuickSelectorProps> = ({
         </h2>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-200">
+      <div className="flex items-stretch gap-2 overflow-x-auto pb-1.5 scrollbar-thin scrollbar-thumb-slate-200">
         {stockList.map((stock) => {
           if (!stock) return null;
 

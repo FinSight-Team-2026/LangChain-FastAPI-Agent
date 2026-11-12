@@ -1,3 +1,4 @@
+import { useAuth } from '../context/AuthContext';
 import React from 'react';
 import { LayoutDashboard, UserCheck, Lock } from 'lucide-react';
 import logoImg from '../assets/images/logo.png';
@@ -19,6 +20,8 @@ export const Header: React.FC<HeaderProps> = ({
   userName = '김상원',
   onOpenAuth,
 }) => {
+  const { logout } = useAuth();
+
   const getLastName = (name: string) => {
     return name.slice(0, 1);
   };
@@ -31,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Brand Zone (마우스 호버 시 색상 변화 제거 및 고정) */}
           <div className="flex items-center gap-6">
             <button
-              onClick={() => onSelectTab('dashboard')}
+              onClick={() => onSelectTab?.('dashboard')}
               className="flex items-center gap-2.5 group text-left cursor-pointer focus-visible:outline-none"
             >
               <div className="w-10 h-10 rounded-xl bg-white border border-slate-100 flex items-center justify-center overflow-hidden shadow-xs transition-colors">
@@ -60,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
             <nav className="flex items-center gap-1 sm:gap-2">
               {/* 1. 대시보드 버튼 */}
               <button
-                onClick={() => onSelectTab('dashboard')}
+                onClick={() => onSelectTab?.('dashboard')}
                 className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
                   currentTab === 'dashboard'
                     ? 'text-blue-600 bg-blue-50/70'
@@ -74,7 +77,7 @@ export const Header: React.FC<HeaderProps> = ({
               {/* 2. 로그인 / 회원가입 버튼 (비로그인 시 노출) */}
               {!isLoggedIn && (
                 <button
-                  onClick={() => (onOpenAuth ? onOpenAuth('login') : onSelectTab('auth'))}
+                  onClick={() => (onOpenAuth ? onOpenAuth('login') : onSelectTab?.('auth'))}
                   className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
                     currentTab === 'auth'
                       ? 'text-blue-600 bg-blue-50/70'
@@ -90,10 +93,10 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 onClick={() => {
                   if (!isLoggedIn) {
-                    onOpenAuth ? onOpenAuth('login') : onSelectTab('auth');
+                    onOpenAuth ? onOpenAuth('login') : onSelectTab?.('auth');
                     return;
                   }
-                  onSelectTab('mypage');
+                  onSelectTab?.('mypage');
                 }}
                 className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
                   currentTab === 'mypage'
@@ -111,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
               <>
                 <div className="h-5 w-px bg-slate-200 mx-1" aria-hidden="true" />
                 <button
-                  onClick={() => onSelectTab('mypage')}
+                  onClick={() => onSelectTab?.('mypage')}
                   className="flex items-center gap-2.5 p-1 -m-1 rounded-full hover:bg-slate-100 transition-colors cursor-pointer group"
                   title={`${userName} 마이페이지 바로가기`}
                 >
@@ -121,6 +124,16 @@ export const Header: React.FC<HeaderProps> = ({
                   <span className="hidden sm:inline-block text-xs font-bold text-slate-800 leading-tight">
                     {userName}
                   </span>
+                </button>
+                <button
+                  onClick={() => {
+                    logout();
+                    onSelectTab?.('dashboard');
+                  }}
+                  className="ml-1 px-2.5 py-1.5 text-xs font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                  title="로그아웃"
+                >
+                  로그아웃
                 </button>
               </>
             )}

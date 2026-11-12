@@ -3,10 +3,17 @@ package com.moodon.backend;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestClient;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 
 @RestController
 @RequestMapping("/api")
@@ -14,18 +21,52 @@ import java.util.*;
 @RequiredArgsConstructor
 public class StockAnalysisController {
 
+    private final RestClient aiClient = RestClient.builder().baseUrl("http://localhost:8001").build();
+
     private final KisService kisService;
 
-    // 1. 오늘의 주식 용어 API
+        // 1. 오늘의 주식 용어 API (ai/moodon_stock_terms_100.json 100개 연동)
     @GetMapping({"/terms/today", "/ai/term/today", "/terms/random"})
     public ResponseEntity<?> getTodayTerm() {
-        Map<String, Object> term = new HashMap<>();
-        term.put("id", 1);
-        term.put("term", "눌림목 매수");
-        term.put("definition", "주가가 강한 상승 추세를 이어가던 중 단기 차익 실현 매물로 인해 일시적으로 조정을 받는 구간에서 진입하는 전략입니다.");
-        term.put("example", "20일 이동평균선 부근까지 지수가 완만히 내려앉을 때 분할 매수로 접근하는 것이 대표적입니다.");
-        term.put("category", "매매 기법");
-        return ResponseEntity.ok(term);
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Seoul"));
+        try {
+            Path jsonPath = Paths.get("../ai/moodon_stock_terms_100.json");
+            if (!Files.exists(jsonPath)) {
+                jsonPath = Paths.get("ai/moodon_stock_terms_100.json");
+            }
+            ObjectMapper mapper = new ObjectMapper();
+            List terms = mapper.readValue(
+                jsonPath.toFile(),
+                List.class
+            );
+
+            if (terms != null && !terms.isEmpty()) {
+                int idx = (int) Math.floorMod(today.toEpochDay(), terms.size());
+                Map selected = (Map) terms.get(idx);
+
+                Map<String, Object> result = new HashMap<>();
+                result.put("id", selected.getOrDefault("id", idx + 1));
+                result.put("term", selected.get("term"));
+                result.put("definition", selected.get("description"));
+                result.put("description", selected.get("description"));
+                result.put("date", today.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")));
+                result.put("source", selected.getOrDefault("source", "MoodON AI 금융 용어 사전"));
+                result.put("category", selected.getOrDefault("category", "주식 기초"));
+                return ResponseEntity.ok(result);
+            }
+        } catch (Exception e) {
+            // 파일 읽기 실패 시 기본 폴백 반환
+        }
+
+        Map<String, Object> fallback = new HashMap<>();
+        fallback.put("id", 1);
+        fallback.put("term", "눌림목 매수");
+        fallback.put("definition", "주가가 강한 상승 추세를 이어가던 중 단기 차익 실현 매물로 인해 일시적으로 조정을 받는 구간에서 진입하는 전략입니다.");
+        fallback.put("description", "주가가 강한 상승 추세를 이어가던 중 단기 차익 실현 매물로 인해 일시적으로 조정을 받는 구간에서 진입하는 전략입니다.");
+        fallback.put("date", today.format(DateTimeFormatter.ofPattern("yyyy.MM.dd")));
+        fallback.put("source", "MoodON AI 금융 용어 사전 · 매매 기법");
+        fallback.put("category", "매매 기법");
+        return ResponseEntity.ok(fallback);
     }
 
     // 2. 메인 대시보드 API
@@ -143,109 +184,66 @@ public class StockAnalysisController {
     // 4. AI 감성 통계 API
     @GetMapping({"/ai/sentiment-stats/{code}", "/stocks/{code}/sentiment-stats", "/sentiment/{code}"})
     public ResponseEntity<?> getSentimentStats(@PathVariable String code) {
+        try {
+            Map res = aiClient.get()
+                    .uri("/api/ai/sentiment-stats/{code}", code)
+                    .retrieve()
+                    .body(Map.class);
+            if (res != null) return ResponseEntity.ok(res);
+        } catch (Exception ignored) {}
+
         Map<String, Object> breakdown = new HashMap<>();
         breakdown.put("positive", 74);
         breakdown.put("neutral", 18);
         breakdown.put("negative", 8);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("stockCode", code);
-        response.put("totalCount", 328);
-        response.put("sentimentScore", 78);
-        response.put("score", 78);
-        response.put("sentimentStatus", "긍정");
-        response.put("status", "긍정");
-        response.put("positiveRatio", 74);
-        response.put("neutralRatio", 18);
-        response.put("negativeRatio", 8);
-        response.put("sentimentBreakdown", breakdown);
-        response.put("breakdown", breakdown);
-
-        return ResponseEntity.ok(response);
+        Map<String, Object> fallback = new HashMap<>();
+        fallback.put("stockCode", code);
+        fallback.put("breakdown", breakdown);
+        fallback.put("positive", 74);
+        fallback.put("neutral", 18);
+        fallback.put("negative", 8);
+        return ResponseEntity.ok(fallback);
     }
 
     // 5. AI 뉴스 요약 리스트 API
     @GetMapping({"/stocks/{code}/news", "/news/{code}"})
-    public ResponseEntity<?> getAiNewsSummary(
+    public ResponseEntity<?> getStockNews(
             @PathVariable String code,
             @RequestParam(defaultValue = "5") int limit) {
-        
+        try {
+            Map res = aiClient.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/ai/news-summary/{code}")
+                            .queryParam("limit", limit)
+                            .build(code))
+                    .retrieve()
+                    .body(Map.class);
+            if (res != null) return ResponseEntity.ok(res);
+        } catch (Exception ignored) {}
+
         var newsList = List.of(
-                Map.of(
-                        "id", 1,
-                        "title", "글로벌 신규 수주 확대 및 실적 개선 모멘텀",
-                        "press", "연합인포맥스",
-                        "source", "연합인포맥스",
-                        "publishedAt", "2026.11.11 13:20",
-                        "timeAgo", "1시간 전",
-                        "sentiment", "positive",
-                        "sentimentLabel", "호재",
-                        "summary", "주력 사업부문의 글로벌 공급망 확대에 힘입어 분기 실적 턴어라운드가 기대됩니다."
-                ),
-                Map.of(
-                        "id", 2,
-                        "title", "적극적 주주가치 제고 및 기관 순매수 유입",
-                        "press", "한국경제",
-                        "source", "한국경제",
-                        "publishedAt", "2026.11.11 11:40",
-                        "timeAgo", "3시간 전",
-                        "sentiment", "positive",
-                        "sentimentLabel", "호재",
-                        "summary", "자사주 정책 및 배당 확대 기대감으로 기관 수급이 하방 지지선을 강화하고 있습니다."
-                ),
-                Map.of(
-                        "id", 3,
-                        "title", "매크로 지수 변동성에 따른 외국인 수급 숨고르기",
-                        "press", "매일경제",
-                        "source", "매일경제",
-                        "publishedAt", "2026.11.11 09:15",
-                        "timeAgo", "5시간 전",
-                        "sentiment", "neutral",
-                        "sentimentLabel", "이슈",
-                        "summary", "시장 전반의 금리 및 환율 변동성으로 외국인 수급이 단기 관망세를 나타내고 있습니다."
-                )
+                Map.of("id", 1, "title", "글로벌 신규 수주 확대 및 실적 개선 모멘텀", "press", "연합인포맥스", "sentiment", "positive", "summary", "AI 서버 미연결 시 표시되는 기본 뉴스입니다.")
         );
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("stockCode", code);
-        response.put("news", newsList);
-        response.put("newsList", newsList);
-        response.put("items", newsList);
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of("stockCode", code, "news", newsList, "items", newsList));
     }
 
     // 6. AI 최종 결론 API
     @GetMapping({"/ai/final-conclusion/{code}", "/stocks/{code}/final-conclusion", "/conclusion/{code}"})
-    public ResponseEntity<?> getAiFinalConclusion(@PathVariable String code) {
+    public ResponseEntity<?> getFinalConclusion(@PathVariable String code) {
+        try {
+            Map res = aiClient.get()
+                    .uri("/api/ai/final-conclusion/{code}", code)
+                    .retrieve()
+                    .body(Map.class);
+            if (res != null) return ResponseEntity.ok(res);
+        } catch (Exception ignored) {}
+
         String stockName = resolveStockName(code);
-        Stock stock = kisService.fetchAndSyncCurrentPrice(code);
-        int currentPrice = (stock != null && stock.getCurrentPrice() != null) ? stock.getCurrentPrice() : 0;
-        double changeRate = (stock != null && stock.getChangeRate() != null) ? stock.getChangeRate().doubleValue() : 0.0;
-
-        Map<String, Object> kospiData = kisService.fetchKospiIndex();
-        double kospiChange = (double) kospiData.getOrDefault("changeRate", -1.15);
-
-        Map<String, Object> marketComparison = new HashMap<>();
-        marketComparison.put("startDate", "2026.11.03");
-        marketComparison.put("endDate", "2026.11.10");
-        marketComparison.put("stockReturn", changeRate);
-        marketComparison.put("kospiReturn", kospiChange);
-        marketComparison.put("relativeReturn", Math.round((changeRate - kospiChange) * 100.0) / 100.0);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("stockCode", code);
-        response.put("stockName", stockName);
-        response.put("badge", changeRate > 0 ? "분할 매수 추천" : "관망 추천");
-        response.put("conclusionBadge", changeRate > 0 ? "분할 매수 추천" : "관망 추천");
-        response.put("guidance", String.format("%s 종목은 기술적 지표 및 기관 수급 유입에 힘입어 안정적인 흐름을 유지하고 있습니다.", stockName));
-        response.put("keyFactors", List.of("20일 이동평균선 상회 유지", "글로벌 신규 공급 계약 모멘텀"));
-        response.put("riskFactors", List.of("거시 경제 환율 변동성", "외국인 단기 차익 실현 매물"));
-        response.put("psychologicalTip", "시장 급락 시 3일 이내 충동 매도를 지양하고 분할 매수로 대응하세요.");
-        response.put("newsCount", 12);
-        response.put("marketComparison", marketComparison);
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "stockCode", code,
+                "stockName", stockName,
+                "conclusion", stockName + "(" + code + ")에 대한 AI 분석 서버 대기 중입니다."
+        ));
     }
 
     private String resolveStockName(String code) {
