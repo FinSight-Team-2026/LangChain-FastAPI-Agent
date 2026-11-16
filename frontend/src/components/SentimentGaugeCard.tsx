@@ -95,7 +95,7 @@ export const SentimentGaugeCard: React.FC<SentimentGaugeCardProps> = ({ stock })
         <div className="flex-1 w-full max-w-xs space-y-2.5">
           <div className="text-xs font-bold text-slate-700 flex items-center justify-between">
             <span>실시간 뉴스 감성 비율</span>
-            <span className="text-slate-600 font-normal">최근 24시간 언론 기사 328건 분석</span>
+            <span className="text-slate-600 font-normal">최근 DB 수집 언론 기사 {(stock as any).analyzedNewsCount ?? stock.news?.length ?? 10}건 분석</span>
           </div>
 
           <div>
@@ -161,7 +161,7 @@ export const SentimentGaugeCard: React.FC<SentimentGaugeCardProps> = ({ stock })
               {stock.name}: {Number(quote.changeRate ?? stock.changeRate ?? 0) >= 0 ? '+' : ''}{Number(quote.changeRate ?? stock.changeRate ?? 0).toFixed(1)}%
             </span>
             <span className="text-slate-700">
-              KOSPI: {Number(panicDefense.kospiChangePercent ?? 0) >= 0 ? '+' : ''}{Number(panicDefense.kospiChangePercent ?? 0).toFixed(1)}%
+              KOSPI: {Number((stock as any).kospiChangePercent ?? panicDefense.kospiChangePercent ?? 0) >= 0 ? '+' : ''}{Number((stock as any).kospiChangePercent ?? panicDefense.kospiChangePercent ?? 0).toFixed(2)}%
             </span>
           </div>
 

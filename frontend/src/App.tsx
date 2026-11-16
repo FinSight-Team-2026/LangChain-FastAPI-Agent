@@ -17,9 +17,73 @@ function AppContent() {
 
   const baseStock = STOCKS_DATA[selectedStockId] || STOCKS_DATA.NAVER;
   const [liveStock, setLiveStock] = useState<any>(baseStock);
+  const [allStocksMap, setAllStocksMap] = useState<Record<string, any>>(STOCKS_DATA);
+
+  // 5대 핵심주 퀵 셀렉터용 전체 종목 실시간 시세·감성 일괄 조회
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchAllQuickStocks() {
+      const entries = Object.entries(STOCKS_DATA);
+      const results = await Promise.allSettled(
+        entries.map(async ([key, item]) => {
+          const code = item.code;
+          const [detailRes, sentRes] = await Promise.allSettled([
+            fetch(`${API_BASE}/stocks/${code}/detail`).then((r) => (r.ok ? r.json() : null)),
+            fetch(`${API_BASE}/ai/sentiment-stats/${code}`).then((r) => (r.ok ? r.json() : null)),
+          ]);
+          const detail = detailRes.status === 'fulfilled' ? detailRes.value : null;
+          const sent = sentRes.status === 'fulfilled' ? sentRes.value : null;
+
+          const updated = { ...item };
+          if (detail) {
+            const livePrice = detail.price ?? detail.currentPrice ?? detail.quote?.currentPrice;
+            const liveChange = detail.change ?? detail.changePrice ?? detail.quote?.changePrice;
+            const liveRate = detail.changePercent ?? detail.changeRate ?? detail.quote?.changeRate;
+            if (livePrice != null) {
+              updated.price = livePrice;
+              updated.quote = { ...(item.quote || {}), currentPrice: livePrice };
+            }
+            if (liveChange != null) {
+              updated.change = liveChange;
+              updated.quote = { ...(updated.quote || item.quote || {}), changePrice: liveChange };
+            }
+            if (liveRate != null) {
+              updated.changeRate = liveRate;
+              updated.quote = { ...(updated.quote || item.quote || {}), changeRate: liveRate };
+            }
+            if (detail.sentimentScore != null) updated.sentimentScore = detail.sentimentScore;
+          }
+          const sScore = sent?.sentimentScore ?? sent?.score;
+          if (sScore != null) {
+            updated.sentimentScore = sScore;
+            updated.sentimentStatus =
+              sent?.sentimentStatus || (sScore >= 60 ? '긍정 우세' : sScore <= 40 ? '부정 우세' : '중립');
+          }
+          return [key, updated] as const;
+        })
+      );
+
+      if (cancelled) return;
+      setAllStocksMap((prev) => {
+        const next = { ...prev };
+        results.forEach((res) => {
+          if (res.status === 'fulfilled') {
+            const [k, val] = res.value;
+            next[k] = { ...next[k], ...val };
+          }
+        });
+        return next;
+      });
+    }
+
+    fetchAllQuickStocks();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
-    const currentBase = STOCKS_DATA[selectedStockId] || STOCKS_DATA.NAVER;
+        const currentBase = allStocksMap[selectedStockId] || STOCKS_DATA[selectedStockId] || STOCKS_DATA.NAVER;
     setLiveStock(currentBase);
 
     const code = currentBase.code;
@@ -27,7 +91,7 @@ function AppContent() {
 
     let cancelled = false;
     async function fetchLiveStockData() {
-      const [detailRes, sentRes, newsRes, concRes, pricesRes, sentDailyRes, kospiRes] = await Promise.allSettled([
+      const [detailRes, sentRes, newsRes, concRes, pricesRes, sentDailyRes, kospiRes, marketCompareRes] = await Promise.allSettled([
         fetch(`${API_BASE}/stocks/${code}/detail`).then((r) => (r.ok ? r.json() : null)),
         fetch(`${API_BASE}/ai/sentiment-stats/${code}`).then((r) => (r.ok ? r.json() : null)),
         fetch(`${API_BASE}/stocks/${code}/news?limit=5`).then((r) => (r.ok ? r.json() : null)),
@@ -35,6 +99,7 @@ function AppContent() {
         fetch(`${API_BASE}/stocks/${code}/prices/daily`).then((r) => (r.ok ? r.json() : null)),
         fetch(`${API_BASE}/stocks/${code}/sentiment/daily`).then((r) => (r.ok ? r.json() : null)),
         fetch(`${API_BASE}/stocks/kospi`).then((r) => (r.ok ? r.json() : null)),
+        fetch(`${API_BASE}/market/compare/${code}`).then((r) => (r.ok ? r.json() : null)),
       ]);
 
       if (cancelled) return;
@@ -46,6 +111,7 @@ function AppContent() {
       const dailyPrices = pricesRes.status === 'fulfilled' ? pricesRes.value : null;
       const dailySentiments = sentDailyRes.status === 'fulfilled' ? sentDailyRes.value : null;
       const kospiData = kospiRes.status === 'fulfilled' ? kospiRes.value : null;
+      const marketCompare = marketCompareRes.status === 'fulfilled' ? marketCompareRes.value : null;
 
       setLiveStock((prev: any) => {
         const updated = { ...prev };
@@ -81,7 +147,15 @@ function AppContent() {
               negative: b.negative ?? prev.sentimentBreakdown?.negative ?? 20,
             };
           }
-          if (sent.score != null) updated.sentimentScore = sent.score;
+          const sScore = sent.sentimentScore ?? sent.score;
+          if (sScore != null) {
+            updated.sentimentScore = sScore;
+            updated.sentimentStatus = sScore >= 70 ? '긍정' : sScore >= 45 ? '중립' : '공포';
+          }
+          const count = sent.totalCount ?? sent.newsCount ?? sent.articleCount;
+          if (count != null) {
+            (updated as any).analyzedNewsCount = Number(count);
+          }
         }
 
         // 3. AI 뉴스 요약 반영
@@ -97,19 +171,57 @@ function AppContent() {
               item.sentimentLabel ||
               (item.sentiment === 'positive' ? '호재' : item.sentiment === 'negative' ? '리스크' : '이슈'),
             summary: item.summary || item.description || '',
+            url: item.url || item.link || item.articleUrl || '',
           }));
           updated.news = mappedNews;
           updated.newsSummary3Lines = mappedNews.slice(0, 3);
         }
 
-        // 4. AI 최종 결론 반영
-        if (conc && typeof conc.conclusion === 'string' && conc.conclusion.trim().length > 0) {
+        // 4. AI 최종 결론 및 안심 방어 가이드 반영
+        const rawGuidance = conc?.guidance ?? conc?.conclusion;
+        if (conc && typeof rawGuidance === 'string' && rawGuidance.trim().length > 0) {
+          const badgeMap: Record<string, '관망 추천' | '분할 매수 추천' | '적극 매수'> = {
+            positive: '적극 매수',
+            bullish: '적극 매수',
+            buy: '분할 매수 추천',
+            mixed: '분할 매수 추천',
+            neutral: '관망 추천',
+            negative: '관망 추천',
+            bearish: '관망 추천',
+          };
+          const mappedBadge = badgeMap[String(conc.badge || '').toLowerCase()] || (conc.badge as any) || prev.finalConclusion?.badge || '관망 추천';
+          const mc = conc.marketComparison;
+          const techSummary = mc && mc.relativeReturn != null
+            ? `시장 대비 상대수익률 ${Number(mc.relativeReturn) >= 0 ? '+' : ''}${Number(mc.relativeReturn).toFixed(2)}%p`
+            : (Array.isArray(conc.keyFactors) && conc.keyFactors[0] ? conc.keyFactors[0] : prev.finalConclusion?.targetSupport || '주요 지지선 모니터링');
+
           updated.finalConclusion = {
-            badge: conc.badge || prev.finalConclusion?.badge || '관망 추천',
-            guidance: conc.conclusion,
-            targetSupport: conc.targetSupport || prev.finalConclusion?.targetSupport || '주요 지지선 모니터링',
+            badge: mappedBadge,
+            guidance: rawGuidance,
+            targetSupport: conc.targetSupport || techSummary,
             psychologicalTip: conc.psychologicalTip || prev.finalConclusion?.psychologicalTip || '분할 접근을 권장합니다.',
           };
+
+          if (Array.isArray(conc.keyFactors) && conc.keyFactors.length > 0) {
+            updated.panicDefense = {
+              ...(prev.panicDefense || {
+                isActive: true,
+                stockChangePercent: updated.changeRate ?? 0,
+                kospiChangePercent: updated.kospiChangePercent ?? 0,
+                badgeText: 'AI 분석',
+                headline: '',
+                recommendation: '',
+                defenseType: 'market_rebound',
+              }),
+              stockChangePercent: updated.changeRate ?? prev.changeRate ?? 0,
+              kospiChangePercent: updated.kospiChangePercent ?? prev.kospiChangePercent ?? 0,
+              headline: conc.keyFactors[0],
+              recommendation: (Array.isArray(conc.riskFactors) && conc.riskFactors[0]) ? conc.riskFactors[0] : (conc.psychologicalTip || prev.panicDefense?.recommendation || ''),
+            };
+          }
+          if (conc.newsCount != null && !(updated as any).analyzedNewsCount) {
+            (updated as any).analyzedNewsCount = Number(conc.newsCount);
+          }
         }
 
         // 5. DB 일별 주가 + 일별 감성 데이터로 차트 곡선(metrics7d & yearlyChartData) 실데이터 교체
@@ -129,7 +241,23 @@ function AppContent() {
             });
           }
 
-          const currentKospi = typeof kospiData?.index === 'number' ? kospiData.index : 2540.3;
+          const kospiByDate = new Map<string, number>();
+          if (Array.isArray(marketCompare?.daily)) {
+            marketCompare.daily.forEach((d: any) => {
+              const raw = String(d.date || '');
+              const norm = raw.length === 8 ? `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6, 8)}` : raw;
+              if (norm && d.kospiIndex != null) kospiByDate.set(norm, Number(d.kospiIndex));
+            });
+          }
+          const latestKospiFromDaily = Array.from(kospiByDate.values()).pop();
+          const currentKospi = latestKospiFromDaily ?? (typeof kospiData?.index === 'number' ? kospiData.index : 2540.3);
+          updated.kospiIndex = currentKospi;
+          if (kospiByDate.size >= 2) {
+            const vals = Array.from(kospiByDate.values());
+            const prevK = vals[vals.length - 2];
+            const lastK = vals[vals.length - 1];
+            if (prevK > 0) updated.kospiChangePercent = Number((((lastK - prevK) / prevK) * 100).toFixed(2));
+          }
 
           // 최근 7거래일 통합 차트 (metrics7d) - DB 실측 포인트 간 선형 보간 적용
           const recent7 = sortedAsc.slice(-7);
@@ -169,7 +297,7 @@ function AppContent() {
               fullDate,
               sentimentScore: getInterpolatedScore(dStr, idx, recent7.length),
               stockPrice: Number(p.closePrice ?? updated.price ?? 0),
-              kospiIndex: currentKospi,
+              kospiIndex: kospiByDate.get(dStr) ?? currentKospi,
             };
           });
 
@@ -189,6 +317,20 @@ function AppContent() {
             };
           });
         }
+
+        setAllStocksMap((prevMap) => ({
+          ...prevMap,
+          [selectedStockId]: {
+            ...(prevMap[selectedStockId] || {}),
+            ...updated,
+            sentimentStatus:
+              (updated.sentimentScore ?? 50) >= 60
+                ? '긍정 우세'
+                : (updated.sentimentScore ?? 50) <= 40
+                ? '부정 우세'
+                : '중립',
+          },
+        }));
 
         return updated;
       });
@@ -229,6 +371,7 @@ function AppContent() {
           <DesktopDashboard
             selectedStock={liveStock}
             onSelectStock={(id) => setSelectedStockId(id)}
+            stocksData={allStocksMap}
           />
         )}
       </main>

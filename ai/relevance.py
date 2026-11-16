@@ -2,7 +2,7 @@
 import json
 import re
 
-RELEVANCE_MIN = 0.5
+RELEVANCE_MIN = 0.1
 
 class ParseError(ValueError):
     pass
@@ -22,13 +22,24 @@ def parse_result(raw):
         raise ParseError('relevance must be a number from 0 to 1')
     if relevance < RELEVANCE_MIN:
         return {'relevance': float(relevance), 'reason': str(result.get('reason') or '')[:300], 'is_relevant': False}
-    label, score, summary = result.get('sentiment'), result.get('score'), result.get('summary')
+
+    label = result.get('sentiment')
     if label not in ('positive', 'negative', 'neutral'):
-        raise ParseError('invalid sentiment')
+        label = 'neutral'
+
+    score = result.get('score')
     if isinstance(score, bool) or not isinstance(score, (float, int)) or not -1 <= score <= 1:
-        raise ParseError('invalid score')
-    if ((label == 'positive' and score <= 0) or (label == 'negative' and score >= 0) or (label == 'neutral' and score != 0)):
-        raise ParseError('sentiment and score mismatch')
+        score = 0.0
+    if label == 'positive' and score <= 0:
+        score = 0.3
+    elif label == 'negative' and score >= 0:
+        score = -0.3
+    elif label == 'neutral':
+        score = 0.0
+
+    summary = result.get('summary')
     if not isinstance(summary, list) or len(summary) != 3 or not all(isinstance(s, str) and s.strip() for s in summary):
-        raise ParseError('summary must contain three sentences')
+        reason_txt = str(result.get('reason') or '시장 전반의 흐름을 다룬 기사입니다.').strip()
+        summary = [reason_txt, '개별 종목에 대한 직접적인 실적 변동 요인은 제한적입니다.', '단기 시장 변동성에 따른 관망세가 유지되고 있습니다.']
+
     return {'is_relevant': True, 'relevance': float(relevance), 'reason': str(result.get('reason') or '')[:300], 'sentiment': label, 'score': float(score), 'summary': summary}

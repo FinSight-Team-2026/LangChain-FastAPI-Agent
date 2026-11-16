@@ -1,6 +1,6 @@
 import React from 'react';
 import { Stock } from '../types/stock';
-import { Newspaper, Compass, Target, HeartHandshake, ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { Newspaper, Compass, Target, HeartHandshake, ShieldCheck, CheckCircle2, ExternalLink } from 'lucide-react';
 
 interface NewsThreeLineSummaryProps {
   stock: Stock;
@@ -27,40 +27,64 @@ export const NewsThreeLineSummary: React.FC<NewsThreeLineSummaryProps> = ({ stoc
 
         {/* 3-Line News List */}
         <div className="divide-y divide-slate-100 mt-1">
-          {newsItems.map((news, idx) => (
-            <div key={news.id} className="py-3 flex items-start gap-3 first:pt-2.5 last:pb-1">
-              <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
-                {idx + 1}
-              </div>
+          {newsItems.map((news, idx) => {
+            const articleUrl = (news as any).url;
+            const Wrapper: any = articleUrl ? 'a' : 'div';
+            const wrapperProps = articleUrl
+              ? {
+                  href: articleUrl,
+                  target: '_blank',
+                  rel: 'noopener noreferrer',
+                  className:
+                    'group py-3 flex items-start gap-3 first:pt-2.5 last:pb-1 rounded-lg px-1.5 -mx-1.5 hover:bg-slate-50/90 transition-colors cursor-pointer block',
+                }
+              : {
+                  className: 'py-3 flex items-start gap-3 first:pt-2.5 last:pb-1',
+                };
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                      news.sentiment === 'positive'
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                        : news.sentiment === 'negative'
-                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                        : 'bg-slate-100 text-slate-700 border border-slate-200'
-                    }`}
-                  >
-                    {news.sentimentLabel}
-                  </span>
-                  <span className="text-xs font-bold text-slate-900 truncate">
-                    {news.title}
-                  </span>
+            return (
+              <Wrapper key={news.id} {...wrapperProps}>
+                <div className="w-6 h-6 rounded-full bg-slate-100 group-hover:bg-blue-100 group-hover:text-blue-700 text-slate-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 transition-colors">
+                  {idx + 1}
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
-                  {news.summary}
-                </p>
-                <div className="mt-1 text-[10px] text-slate-500 flex items-center gap-2">
-                  <span>{news.source}</span>
-                  <span>·</span>
-                  <span>{news.timeAgo}</span>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                        news.sentiment === 'positive'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                          : news.sentiment === 'negative'
+                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                          : 'bg-slate-100 text-slate-700 border border-slate-200'
+                      }`}
+                    >
+                      {news.sentimentLabel}
+                    </span>
+                    <span className="text-xs font-bold text-slate-900 group-hover:text-blue-600 truncate transition-colors">
+                      {news.title}
+                    </span>
+                    {articleUrl && (
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 shrink-0 ml-auto transition-colors" />
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">
+                    {news.summary}
+                  </p>
+                  <div className="mt-1 text-[10px] text-slate-500 flex items-center gap-2">
+                    <span>{news.source}</span>
+                    <span>·</span>
+                    <span>{news.timeAgo}</span>
+                    {articleUrl && (
+                      <span className="text-blue-600 font-medium ml-auto opacity-80 group-hover:opacity-100">
+                        원문 보기 →
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
+              </Wrapper>
+            );
+          })}
         </div>
       </div>
     </div>
