@@ -17,7 +17,7 @@ export const NewsThreeLineSummary: React.FC<NewsThreeLineSummaryProps> = ({ stoc
           <div className="flex items-center gap-2">
             <h3 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
               <Newspaper className="w-4 h-4 text-blue-600" />
-              <span>뉴스 세 줄 요약</span>
+              <span>뉴스 요약</span>
             </h3>
           </div>
           <p className="text-[11px] text-slate-500 mt-1 font-medium">
@@ -28,8 +28,8 @@ export const NewsThreeLineSummary: React.FC<NewsThreeLineSummaryProps> = ({ stoc
         {/* 3-Line News List */}
         <div className="divide-y divide-slate-100 mt-1">
           {newsItems.map((news, idx) => {
-            const articleUrl = (news as any).url;
-            const Wrapper: any = articleUrl ? 'a' : 'div';
+            const articleUrl = news.url || news.link || news.articleUrl;
+            const Wrapper = articleUrl ? 'a' : 'div';
             const wrapperProps = articleUrl
               ? {
                   href: articleUrl,

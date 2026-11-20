@@ -329,9 +329,12 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
                 <p className="text-sm text-gray-400 py-6 text-center">조건에 해당하는 뉴스가 없습니다.</p>
               ) : (
                 filteredNews.map((item) => (
-                  <div
+                  <a
                     key={item.id}
-                    className="p-3.5 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50"
+                    href={item.url || item.link || item.articleUrl || undefined}
+                    target={item.url || item.link || item.articleUrl ? '_blank' : undefined}
+                    rel={item.url || item.link || item.articleUrl ? 'noopener noreferrer' : undefined}
+                    className="block p-3.5 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 hover:border-blue-300 dark:hover:border-blue-700 transition-colors"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 truncate">
@@ -349,7 +352,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({ stock, onClo
                       <span className="text-[11px] text-gray-400 shrink-0">{item.timeAgo} · {item.source}</span>
                     </div>
                     <p className="text-xs text-gray-600 dark:text-gray-300 mt-1.5">{item.summary}</p>
-                  </div>
+                  </a>
                 ))
               )}
             </div>

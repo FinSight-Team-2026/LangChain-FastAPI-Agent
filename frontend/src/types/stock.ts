@@ -18,6 +18,9 @@ export interface NewsItem {
   sentimentScore?: number;
   sentimentReason?: string;
   summary?: string;
+  url?: string;
+  link?: string;
+  articleUrl?: string;
 }
 
 export interface PanicDefenseInfo {

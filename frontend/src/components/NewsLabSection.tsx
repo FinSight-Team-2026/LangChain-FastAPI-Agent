@@ -180,7 +180,13 @@ export const NewsLabSection: React.FC<NewsLabSectionProps> = ({
 
             <div className="space-y-3">
               {filteredNews.map((item) => (
-                <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <a
+                  key={item.id}
+                  href={item.url || item.link || item.articleUrl}
+                  target={item.url || item.link || item.articleUrl ? '_blank' : undefined}
+                  rel={item.url || item.link || item.articleUrl ? 'noopener noreferrer' : undefined}
+                  className="block rounded-xl border border-slate-200 bg-slate-50 p-3 hover:border-blue-200 hover:bg-blue-50/40 transition-colors"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-slate-900">{item.title}</p>
                     <span className="text-[10px] rounded-full bg-white px-2 py-0.5 border border-slate-200 text-slate-600">
@@ -188,7 +194,7 @@ export const NewsLabSection: React.FC<NewsLabSectionProps> = ({
                     </span>
                   </div>
                   <p className="mt-2 text-xs text-slate-600 leading-relaxed">{item.summary}</p>
-                </div>
+                </a>
               ))}
             </div>
           </div>
