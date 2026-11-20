@@ -171,7 +171,7 @@ function AppContent() {
               item.sentimentLabel ||
               (item.sentiment === 'positive' ? '호재' : item.sentiment === 'negative' ? '리스크' : '이슈'),
             summary: item.summary || item.description || '',
-            url: item.url || item.link || item.articleUrl || '',
+            url: item.url || item.link || item.articleUrl || item.originalUrl || item.originallink || item.article_url || '',
           }));
           updated.news = mappedNews;
           updated.newsSummary3Lines = mappedNews.slice(0, 3);
